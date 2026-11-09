@@ -4,8 +4,9 @@ import { record, speak, stopSpeaking } from './audio.js'
 import './styles.css'
 
 // ---------- api + i18n ----------
-async function api(path, body, raw) {
-  const r = await fetch('/api' + path, body === undefined ? undefined : raw ? { method: 'POST', body } : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+async function api(path, body, opts = {}) {
+  const init = body === undefined ? { method: opts.method } : opts.raw ? { method: 'POST', body } : { method: opts.method || 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+  const r = await fetch('/api' + path, init)
   const j = await r.json()
   if (!r.ok) throw new Error(j.error || r.statusText)
   return j
@@ -13,53 +14,64 @@ async function api(path, body, raw) {
 
 // English source strings. Each language is translated once by the LLM and cached on the device.
 const EN = {
-  tagline: 'A friend of your own age',
-  chooseLang: 'Which language do you speak?',
   chooseFriend: 'Choose your friend',
   hear: 'Hear voice',
   female_intro: 'Namaste! I am Kamla. I taught in a school for thirty years, and now I have a lot of time for chit-chat. Shall we be friends?',
   male_intro: 'Namaste! I am Ramesh. I was a railway station master for thirty-five years. I have many stories to share. Shall we be friends?',
   female_role: 'Retired teacher, 71',
   male_role: 'Retired station master, 73',
-  q1: 'First tell me, what is your good name?',
-  q2: 'How old are you, and which city do you live in?',
-  q3: 'Which religion do you follow? I will remember all your festivals.',
-  q4: 'Do you have any health troubles, like BP, sugar or knee pain? Which medicines do you take, and at what time?',
-  q5: 'How does your day begin? When do you wake up, when is your puja, and which bhajan do you like to hear?',
-  q6: 'Tell me about your family. Children, grandchildren, their names and their birthdays.',
-  q7: 'What news do you like to hear? Cricket, religion, politics, farming, health?',
-  next: 'Next',
+  start: 'Start talking',
   back: 'Back',
   tapSpeak: 'Tap and speak',
   typeHere: 'Or type here…',
-  saving: 'Getting to know you…',
   listening: 'Listening… speak now',
   thinking: 'Thinking…',
   speaking: 'Speaking… tap to stop',
+  gettingToKnow: 'Getting to know you',
+  cName: 'Name',
+  cPlace: 'Age and city',
+  cFaith: 'Religion',
+  cHealth: 'Health',
+  cRoutine: 'Daily routine',
+  cFamily: 'Family',
+  cNews: 'Favourite news',
   today: 'Today',
   health: 'Health',
   family: 'Family',
+  routine: 'Routine',
   morning: 'Morning talk',
   morningSub: 'Weather, news and today’s plan',
   todayPlan: 'Today’s plan',
   done: 'Done',
-  later: 'Later',
+  snooze: 'In 10 minutes',
+  ok: 'OK',
   share: 'Share on WhatsApp',
   call: 'Call',
   play: 'Play on YouTube',
   alertTitle: 'This reading needs care. Please sit and rest.',
   healthHint: 'Just say it: “My BP today is 140 by 90”',
+  routineHint: 'Just say it: “Remind me to drink water every 2 hours” or “Every Ekadashi play Vishnu Sahasranamam”',
   noReadings: 'No readings yet',
+  noJobs: 'Nothing scheduled yet',
   birthdayIn: 'Birthday in {n} days',
   birthdayToday: 'Birthday today!',
   wish: 'Write a wish',
   elderLine: 'Elder helpline 14567',
   orderPlaced: 'Order placed (demo)',
-  reminderSet: 'Reminder set',
   greet: 'Namaste, {name}',
   firstHello: 'Tap the big button and talk to me about anything.',
   aqi: 'Air',
   send: 'Send',
+  daily: 'Every day',
+  monthly: 'Every month on {n}',
+  every: 'Every {n}',
+  ekadashi: 'Every Ekadashi',
+  everyBirthday: 'Every birthday',
+  next: 'Next',
+  tryNow: 'Try now',
+  paused: 'Paused',
+  missed: 'Not confirmed',
+  tellFamily: 'Tell {name} on WhatsApp',
 }
 const keys = Object.keys(EN)
 
@@ -68,24 +80,57 @@ function useT(lang) {
   useEffect(() => {
     if (!lang || dicts[lang]) return
     try {
-      const saved = JSON.parse(localStorage.getItem('saathi.t.' + lang))
+      const saved = JSON.parse(localStorage.getItem('saathi.t2.' + lang))
       if (saved && Object.keys(saved).length === keys.length) return setDicts((d) => ({ ...d, [lang]: saved }))
     } catch {}
     api('/translate', { lang, lines: Object.values(EN) })
       .then((arr) => {
         const d = Object.fromEntries(keys.map((k, i) => [k, arr[i] || EN[k]]))
-        try { localStorage.setItem('saathi.t.' + lang, JSON.stringify(d)) } catch {}
+        try { localStorage.setItem('saathi.t2.' + lang, JSON.stringify(d)) } catch {}
         setDicts((x) => ({ ...x, [lang]: d }))
       })
       .catch(() => setDicts((x) => ({ ...x, [lang]: EN })))
   }, [lang])
   const dict = dicts[lang]
-  const t = useCallback((k, vars = {}) => (dict?.[k] ?? EN[k]).replace(/\{(\w+)\}/g, (_, v) => vars[v] ?? ''), [dict])
+  const t = useCallback((k, vars = {}) => (dict?.[k] ?? EN[k] ?? k).replace(/\{(\w+)\}/g, (_, v) => vars[v] ?? ''), [dict])
   return [t, !!dict || lang === 'en-IN']
 }
 
 const NATIVE = { 'hi-IN': 'हिन्दी', 'en-IN': 'English', 'ta-IN': 'தமிழ்', 'te-IN': 'తెలుగు', 'kn-IN': 'ಕನ್ನಡ', 'ml-IN': 'മലയാളം', 'mr-IN': 'मराठी', 'pa-IN': 'ਪੰਜਾਬੀ', 'bn-IN': 'বাংলা', 'gu-IN': 'ગુજરાતી' }
-const KIND = { medicine: '💊', puja: '🪔', wake: '🌅', health: '🩺', call: '📞', other: '⏰' }
+const KIND = { medicine: '💊', puja: '🪔', bhajan: '🎵', wake: '🌅', health: '🩺', call: '📞', water: '💧', walk: '🚶', meal: '🍲', news: '📰', brief: '☀️', bill: '🧾', birthday: '🎂', festival: '🪔', escalation: '⚠️', other: '⏰' }
+
+// Human label for a job schedule, in the user's language (weekday and month names come from Intl).
+function label(s, t, lang) {
+  const day = (iso) => new Date(iso + 'T12:00').toLocaleDateString(lang, { day: 'numeric', month: 'short' })
+  const wd = (d) => new Date(Date.UTC(2026, 10, 8 + +d)).toLocaleDateString(lang, { weekday: 'short', timeZone: 'UTC' }) // 8 Nov 2026 is a Sunday
+  const before = s.daysBefore ? ` −${s.daysBefore}d` : ''
+  switch (s.type) {
+    case 'daily': return `${t('daily')} · ${s.time}`
+    case 'weekly': return `${(s.days ?? []).map(wd).join(', ')} · ${s.time}`
+    case 'monthly': return `${t('monthly', { n: s.dayOfMonth })} · ${s.time}`
+    case 'yearly': return `${day('2026-' + s.monthDay)} · ${s.time}`
+    case 'once': return `${day(s.date)} · ${s.time}`
+    case 'interval': return `${t('every', { n: s.everyMinutes % 60 === 0 ? s.everyMinutes / 60 + 'h' : s.everyMinutes + 'm' })} · ${s.from || '08:00'}–${s.to || '20:00'}`
+    case 'festival': return `${/ekadashi/i.test(s.festival) ? t('ekadashi') : s.festival}${before} · ${s.time}`
+    case 'birthday': return `🎂 ${s.person || t('everyBirthday')}${before} · ${s.time}`
+    default: return s.time ?? ''
+  }
+}
+
+// Web Push so jobs ring even when the app is closed. Must start from a tap (permission prompt).
+async function enablePush(key, ask) {
+  try {
+    if (!key || !('serviceWorker' in navigator) || !('PushManager' in window)) return
+    if (Notification.permission !== 'granted' && (!ask || (await Notification.requestPermission()) !== 'granted')) return
+    const reg = await navigator.serviceWorker.register('/sw.js')
+    await navigator.serviceWorker.ready
+    const raw = atob(key.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (key.length % 4)) % 4))
+    const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: Uint8Array.from(raw, (c) => c.charCodeAt(0)) }))
+    await api('/push', sub.toJSON())
+  } catch (e) {
+    console.warn('push not enabled', e)
+  }
+}
 
 // ---------- shared UI ----------
 function Orb({ phase, level, onClick, label, size = 'lg' }) {
@@ -94,11 +139,7 @@ function Orb({ phase, level, onClick, label, size = 'lg' }) {
       <span className="orb-ring" />
       <span className="orb-ring r2" />
       <svg viewBox="0 0 24 24" width="40%" height="40%" aria-hidden>
-        {phase === 'speaking' ? (
-          <path d="M6 6h12v12H6z" fill="currentColor" rx="2" />
-        ) : (
-          <path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-2.1a7 7 0 0 0 6-6.9z" fill="currentColor" />
-        )}
+        {phase === 'speaking' ? <path d="M6 6h12v12H6z" fill="currentColor" /> : <path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-2.1a7 7 0 0 0 6-6.9z" fill="currentColor" />}
       </svg>
     </button>
   )
@@ -130,56 +171,39 @@ function useRecorder(onBlob) {
 }
 
 function Avatar({ persona, phase }) {
-  const letter = persona?.id === 'male' ? 'र' : 'क'
   return (
-    <div className={`avatar ${persona?.id} ${phase}`}>
-      <span>{letter}</span>
+    <div className={`avatar ${persona?.id} ${phase ?? ''}`}>
+      <span>{persona?.name?.[0] ?? '·'}</span>
       <i className="spark" />
     </div>
   )
 }
 
-// ---------- onboarding ----------
-const DEMO = [
-  'My name is Shanti Devi.',
-  'I am 72 years old and I live in Lucknow.',
-  'I am Hindu.',
-  'I have high BP and sugar. I take Amlodipine at 8 in the morning and Metformin at 9 at night. My knees also hurt.',
-  'I wake up at 5:30. Puja at 6:30, I like listening to Hanuman Chalisa. On Ekadashi I listen to Vishnu Sahasranamam.',
-  'My son Rahul lives in Bengaluru, phone 90000 00001, birthday 12 November. Granddaughter Anya, birthday 14 November. Daughter Priya in Pune, phone 90000 00002, birthday 5 January.',
-  'Cricket, spiritual news and health tips.',
-]
-
-function Onboarding({ state, onDone }) {
+// ---------- first launch: language + friend ----------
+function Welcome({ state, onStarted }) {
   const [lang, setLang] = useState(null)
   const [persona, setPersona] = useState(null)
-  const [step, setStep] = useState(0) // 0 lang, 1 friend, 2..8 questions, 9 saving
-  const [answers, setAnswers] = useState(Array(7).fill(''))
+  const [busy, setBusy] = useState(false)
   const [t, ready] = useT(lang)
-  const qi = step - 2
-  const rec = useRecorder(async (blob, setPhase) => {
-    setPhase('thinking')
-    const r = await api('/stt', blob, true)
-    setAnswers((a) => a.map((x, i) => (i === qi ? (x ? x + ' ' : '') + r.text : x)))
-  })
 
-  useEffect(() => {
-    if (qi >= 0 && qi < 7 && ready) speak(t('q' + (qi + 1)), lang, persona)
-  }, [step, ready])
-
-  const finish = async (ans = answers) => {
+  const start = async () => {
+    setBusy(true)
     stopSpeaking()
-    setStep(9)
-    await api('/onboard', { lang, persona, answers: ans.map((a, i) => ({ q: EN['q' + (i + 1)], a })) })
-    if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission()
-    onDone()
+    enablePush(state.vapidKey, true) // the tap allows the notification prompt
+    try {
+      const r = await api('/start', { lang, persona })
+      await onStarted()
+      speak(r.reply, lang, persona)
+    } catch (e) {
+      alert(e.message)
+      setBusy(false)
+    }
   }
-  const per = persona && state.personas[persona]
 
   return (
     <div className="onb">
-      {step === 0 && (
-        <div className="onb-lang fade">
+      {!lang ? (
+        <div className="fade">
           <div className="brand">
             <img src="/icon.svg" alt="" />
             <h1>Saathi</h1>
@@ -188,15 +212,11 @@ function Onboarding({ state, onDone }) {
           <h2>भाषा चुनें · Choose language</h2>
           <div className="lang-grid">
             {Object.entries(NATIVE).map(([code, name]) => (
-              <button key={code} className="lang" onClick={() => (setLang(code), setStep(1))}>
-                {name}
-              </button>
+              <button key={code} className="lang" onClick={() => setLang(code)}>{name}</button>
             ))}
           </div>
         </div>
-      )}
-
-      {step === 1 && (
+      ) : (
         <div className="fade">
           <h2 className="center">{t('chooseFriend')}</h2>
           <div className="friends">
@@ -205,48 +225,14 @@ function Onboarding({ state, onDone }) {
                 <Avatar persona={p} />
                 <b>{p.name}</b>
                 <small>{t(p.id + '_role')}</small>
-                <button className="ghost" onClick={(e) => (e.stopPropagation(), setPersona(p.id), speak(t(p.id + '_intro'), lang, p.id))}>
-                  ▶ {t('hear')}
-                </button>
+                <button className="ghost" onClick={(e) => (e.stopPropagation(), setPersona(p.id), speak(t(p.id + '_intro'), lang, p.id))}>▶ {t('hear')}</button>
               </div>
             ))}
           </div>
           <div className="row">
-            <button className="ghost" onClick={() => setStep(0)}>{t('back')}</button>
-            <button className="primary" disabled={!persona || !ready} onClick={() => setStep(2)}>{t('next')} →</button>
+            <button className="ghost" onClick={() => (setLang(null), setPersona(null))}>{t('back')}</button>
+            <button className="primary" disabled={!persona || !ready || busy} onClick={start}>{busy ? '…' : t('start') + ' →'}</button>
           </div>
-        </div>
-      )}
-
-      {qi >= 0 && qi < 7 && (
-        <div className="fade q" key={step}>
-          <div className="progress"><i style={{ width: `${((qi + 1) / 7) * 100}%` }} /></div>
-          <div className="q-head">
-            <Avatar persona={per} phase={rec.phase} />
-            <div>
-              <small>{per.name}</small>
-              <p className="q-text" onClick={() => speak(t('q' + (qi + 1)), lang, persona)}>{t('q' + (qi + 1))}</p>
-            </div>
-          </div>
-          <textarea value={answers[qi]} placeholder={t('typeHere')} onChange={(e) => setAnswers((a) => a.map((x, i) => (i === qi ? e.target.value : x)))} />
-          <div className="q-mic">
-            <Orb phase={rec.phase} level={rec.level} onClick={rec.toggle} label={t('tapSpeak')} size="md" />
-            <span>{rec.phase === 'listening' ? t('listening') : rec.phase === 'thinking' ? t('thinking') : t('tapSpeak')}</span>
-          </div>
-          <div className="row">
-            <button className="ghost" onClick={() => setStep(step - 1)}>{t('back')}</button>
-            <button className="primary" onClick={() => (qi === 6 ? finish() : setStep(step + 1))}>{t('next')} →</button>
-          </div>
-          {qi === 0 && (
-            <button className="demo-fill" onClick={() => (setAnswers(DEMO), finish(DEMO))}>demo: fill sample answers</button>
-          )}
-        </div>
-      )}
-
-      {step === 9 && (
-        <div className="saving fade">
-          <Avatar persona={per} phase="thinking" />
-          <p>{t('saving')}</p>
         </div>
       )}
     </div>
@@ -254,12 +240,12 @@ function Onboarding({ state, onDone }) {
 }
 
 // ---------- cards from the agent ----------
-function Card({ c, t, onAsk }) {
+function Card({ c, t, lang }) {
   if (c.type === 'whatsapp')
     return (
       <div className="card wa">
         <p className="msg">{c.message}</p>
-        <a className="btn wa-btn" href={c.url} target="_blank" rel="noreferrer">🟢 {t('share')}</a>
+        <a className="btn wa-btn" href={c.url} target="_blank" rel="noreferrer">🟢 {t('share')}{c.to ? ` · ${c.to}` : ''}</a>
       </div>
     )
   if (c.type === 'youtube')
@@ -283,27 +269,40 @@ function Card({ c, t, onAsk }) {
         <p>{t('alertTitle')}</p>
         <div className="row wrap">
           {c.family && <a className="btn call-btn" href={`tel:${c.family.phone ?? ''}`}>📞 {c.family.name}</a>}
+          {c.wa && <a className="btn wa-btn" href={c.wa} target="_blank" rel="noreferrer">🟢 {c.family?.name}</a>}
           {c.doctor && <a className="btn call-btn" href={`tel:${c.doctor.phone ?? ''}`}>🩺 {c.doctor.name}</a>}
           <a className="btn ghost" href="tel:14567">{t('elderLine')}</a>
         </div>
       </div>
     )
+  if (c.type === 'escalation')
+    return (
+      <div className="card alert">
+        <p className="msg">{c.message}</p>
+        <div className="row wrap">
+          <a className="btn wa-btn" href={c.url} target="_blank" rel="noreferrer">🟢 {t('tellFamily', { name: c.family.name })}</a>
+          <a className="btn call-btn" href={`tel:${c.family.phone ?? ''}`}>📞 {c.family.name}</a>
+        </div>
+      </div>
+    )
+  if (c.type === 'job')
+    return (
+      <div className="chip job">
+        {KIND[c.kind] ?? '⏰'} <b>{c.title}</b> · {label(c.schedule, t, lang)}
+      </div>
+    )
   if (c.type === 'health') return <div className="chip ok">✓ {c.reading}</div>
-  if (c.type === 'reminder') return <div className="chip">{KIND[c.kind] ?? '⏰'} {c.time} · {c.text} · {t('reminderSet')}</div>
   if (c.type === 'order') return <div className="card order">🛍️ <b>{c.item}</b><small>{t('orderPlaced')} · ETA {c.eta}</small></div>
   if (c.type === 'news')
     return (
       <div className="card news">
         <small>📰 {c.topic}</small>
-        {c.items?.map((n) => (
-          <a key={n.url} href={n.url} target="_blank" rel="noreferrer">{n.title}</a>
-        ))}
+        {c.items?.map((n) => <a key={n.url} href={n.url} target="_blank" rel="noreferrer">{n.title}</a>)}
       </div>
     )
   return null
 }
 
-// ---------- home ----------
 function Spark({ values, color }) {
   if (values.length < 2) return null
   const min = Math.min(...values) - 5
@@ -316,9 +315,14 @@ function Spark({ values, color }) {
   )
 }
 
+// Synthetic sample so a demo can show the whole onboarding in one turn.
+const DEMO_INTRO = 'Main Shanti Devi hoon, 72 saal ki, Lucknow mein rehti hoon. Hindu hoon. Mujhe BP aur sugar hai, subah 8 baje Amlodipine aur raat 9 baje Metformin leti hoon. Subah 5:30 uthti hoon, 6:30 puja karti hoon, Hanuman Chalisa sunna pasand hai. Beta Rahul Bengaluru mein hai, phone 90000 00001, janamdin 12 November. Poti Anya ka janamdin 14 November. Beti Priya Pune mein, phone 90000 00002, janamdin 5 January. Cricket aur dharm ki khabrein pasand hain.'
+
+// ---------- main screen (also the onboarding conversation) ----------
 function Home({ state, reload }) {
   const p = state.profile
   const lang = p.language
+  const onboarding = p.onboarding
   const [t] = useT(lang)
   const [tab, setTab] = useState('today')
   const [last, setLast] = useState(null)
@@ -331,13 +335,13 @@ function Home({ state, reload }) {
     setLast({ you })
     const r = await run()
     setLast({ you, ...r })
-    reload()
+    await reload()
     setPhase('speaking')
-    await speak(r.reply ?? r.text, replyLang, p.persona)
+    await speak(r.reply, replyLang, p.persona)
   }
   const rec = useRecorder(async (blob, setPhase) => {
     setPhase('thinking')
-    const s = await api('/stt', blob, true)
+    const s = await api('/stt', blob, { raw: true })
     if (!s.text?.trim()) return
     await reply(s.text, () => api('/chat', { text: s.text, lang: s.lang }), setPhase, s.lang)
   })
@@ -345,56 +349,53 @@ function Home({ state, reload }) {
     try { await fn() } catch (e) { alert(e.message) }
     rec.setPhase('idle')
   }
+  const say = (q, shown = q) => (setTab('today'), run(() => reply(shown, () => api('/chat', { text: q, lang }), rec.setPhase)))
   const sendText = () => {
     const q = text.trim()
-    if (!q) return
-    setText('')
-    setTab('today')
-    run(() => reply(q, () => api('/chat', { text: q, lang }), rec.setPhase))
+    if (q) setText(''), say(q)
   }
-  const brief = () => (setTab('today'), run(() => reply('☀️ ' + t('morning'), async () => api('/brief'), rec.setPhase)))
+  const brief = () => (setTab('today'), run(() => reply('☀️ ' + t('morning'), () => api('/brief'), rec.setPhase)))
 
-  // Reminder clock: poll the server, ring with voice + system notification.
+  // Live job events from the server scheduler.
   useEffect(() => {
-    const tick = async (next) => {
-      const due = await fetch('/api/due' + (next ? '?next=1' : '')).then((r) => r.json()).catch(() => [])
-      if (!due.length) return
-      const r = due[0]
-      setFiring(r)
-      if (document.hidden && Notification?.permission === 'granted') new Notification(`${state.persona.name} · ${r.time}`, { body: r.text, icon: '/icon.svg' })
-      speak(r.text, lang, p.persona)
+    enablePush(state.vapidKey, false)
+    const es = new EventSource('/api/stream')
+    es.onmessage = (m) => {
+      const ev = JSON.parse(m.data)
+      setFiring(ev)
+      reload()
+      if (ev.kind !== 'escalation') speak(ev.text, lang, p.persona)
     }
-    window.__ring = () => tick(true) // demo: ring the next reminder now
-    tick()
-    const id = setInterval(tick, 20000)
-    return () => clearInterval(id)
+    return () => es.close()
   }, [])
-  const closeReminder = async (done) => {
-    const r = firing
+  const closeEvent = async (status) => {
+    const ev = firing
     setFiring(null)
     stopSpeaking()
-    if (done) await api(`/reminders/${r.id}/done`, {})
+    if (status) await api(`/events/${ev.id}`, { status }).catch(() => {})
     reload()
-    if (done && r.kind === 'wake') brief()
   }
 
   const w = state.weather
   const now = state.now
-  const todays = state.reminders.filter((r) => !r.date || r.date === now.date).sort((a, b) => a.time.localeCompare(b.time))
-  const festToday = state.festivals.find((f) => f.date === now.date)
   const bp = state.health.filter((h) => h.type === 'bp')
   const sugar = state.health.filter((h) => h.type === 'sugar')
   const phaseLabel = { listening: t('listening'), thinking: t('thinking'), speaking: t('speaking') }[rec.phase]
+  const festToday = state.festivals.find((f) => f.date === now.date)
+  const checks = [
+    ['cName', p.name], ['cPlace', p.age && p.city], ['cFaith', p.religion], ['cHealth', p.conditions?.length || p.medicines?.length],
+    ['cRoutine', state.jobs.length >= 2], ['cFamily', state.family.length], ['cNews', p.interests?.length],
+  ]
 
   return (
     <div className="home">
       <header className="top">
         <div>
-          <small className="date" onDoubleClick={() => window.__ring()}>
+          <small className="date" onDoubleClick={() => state.today.find((x) => x.status === 'upcoming') && api(`/jobs/${state.today.find((x) => x.status === 'upcoming').jobId}/run`, {})}>
             {new Date(now.date + 'T12:00').toLocaleDateString(lang, { weekday: 'long', day: 'numeric', month: 'long' })}
             {festToday && <span className="fest-tag"> · 🪔 {festToday.name}</span>}
           </small>
-          <h1>{t('greet', { name: p.name?.split(' ')[0] })}</h1>
+          <h1>{onboarding ? t('gettingToKnow') : t('greet', { name: p.name?.split(' ')[0] })}</h1>
         </div>
         {w && (
           <div className="weather">
@@ -406,7 +407,24 @@ function Home({ state, reload }) {
       </header>
 
       <main className="scroll">
-        {tab === 'today' && (
+        {onboarding && (
+          <>
+            <div className="checks">
+              {checks.map(([k, ok]) => <span key={k} className={`check ${ok ? 'on' : ''}`}>{ok ? '✓' : '○'} {t(k)}</span>)}
+            </div>
+            <div className="convo">
+              {state.chat.slice(-6).map((m, i) => (
+                <p key={i} className={`bubble ${m.role}`}>{m.content}</p>
+              ))}
+              {last?.you && !last.reply && <p className="bubble user">{last.you}</p>}
+              {rec.phase === 'thinking' && <p className="bubble assistant"><span className="dots"><i /><i /><i /></span></p>}
+            </div>
+            {last?.cards?.map((c, i) => <Card key={i} c={c} t={t} lang={lang} />)}
+            <button className="demo-fill" onClick={() => say(DEMO_INTRO, '(demo intro)')}>demo: say a sample introduction</button>
+          </>
+        )}
+
+        {!onboarding && tab === 'today' && (
           <>
             <section className={`hero ${rec.phase}`}>
               <div className="hero-who">
@@ -418,10 +436,10 @@ function Home({ state, reload }) {
               </div>
               {last?.you && <p className="you">“{last.you}”</p>}
               <p className="said" onClick={() => last?.reply && speak(last.reply, lang, p.persona)}>
-                {last ? last.reply ?? last.text ?? <span className="dots"><i /><i /><i /></span> : t('firstHello')}
+                {last ? last.reply ?? <span className="dots"><i /><i /><i /></span> : t('firstHello')}
               </p>
             </section>
-            {last?.cards?.map((c, i) => <Card key={i} c={c} t={t} />)}
+            {last?.cards?.map((c, i) => <Card key={i} c={c} t={t} lang={lang} />)}
 
             <button className="brief" onClick={brief}>
               <span className="sun">☀️</span>
@@ -432,30 +450,51 @@ function Home({ state, reload }) {
             {(state.festivals.length > 0 || state.birthdays.length > 0) && (
               <div className="chips">
                 {state.birthdays.map((b) => (
-                  <button key={b.name} className="chip bday" onClick={() => run(() => reply(`${t('wish')}: ${b.name}`, () => api('/chat', { text: `Help me write a birthday WhatsApp wish for ${b.name} (${b.relation}), birthday ${b.next}.`, lang }), rec.setPhase))}>
+                  <button key={b.name} className="chip bday" onClick={() => say(`Help me write a birthday WhatsApp wish for ${b.name} (${b.relation}), birthday ${b.next}.`, `${t('wish')}: ${b.name}`)}>
                     🎂 {b.name} · {b.inDays === 0 ? t('birthdayToday') : t('birthdayIn', { n: b.inDays })}
                   </button>
                 ))}
                 {state.festivals.slice(0, 3).map((f) => (
-                  <span key={f.date + f.name} className="chip fest">🪔 {f.name} · {new Date(f.date).toLocaleDateString(lang, { day: 'numeric', month: 'short' })}</span>
+                  <span key={f.date + f.name} className="chip fest">🪔 {f.name} · {new Date(f.date + 'T12:00').toLocaleDateString(lang, { day: 'numeric', month: 'short' })}</span>
                 ))}
               </div>
             )}
 
             <h3>{t('todayPlan')}</h3>
             <ol className="timeline">
-              {todays.map((r) => (
-                <li key={r.id} className={r.done?.includes(now.date) ? 'done' : r.time < now.time ? 'past' : ''}>
+              {state.today.map((r) => (
+                <li key={r.jobId + r.time} className={r.status}>
                   <time>{r.time}</time>
                   <span className="k">{KIND[r.kind] ?? '⏰'}</span>
-                  <p>{r.text}</p>
+                  <p>{r.title}{r.status === 'missed' && <em> · {t('missed')}</em>}</p>
                 </li>
               ))}
             </ol>
           </>
         )}
 
-        {tab === 'health' && (
+        {!onboarding && tab === 'routine' && (
+          <>
+            <p className="hint">🎙️ {t('routineHint')}</p>
+            {state.jobs.length === 0 && <p className="empty">{t('noJobs')}</p>}
+            {state.jobs.map((j) => (
+              <div key={j.id} className={`card job-row ${j.active ? '' : 'off'}`}>
+                <span className="k">{KIND[j.kind] ?? '⏰'}</span>
+                <div className="grow">
+                  <b>{j.title}</b>
+                  <small>{label(j.schedule, t, lang)}{j.action === 'agent' ? ' · ✨' : ''}{!j.active ? ` · ${t('paused')}` : ''}</small>
+                </div>
+                <div className="job-actions">
+                  <button className="mini" title={t('tryNow')} onClick={() => api(`/jobs/${j.id}/run`, {}).catch((e) => alert(e.message))}>▶</button>
+                  <button className="mini" title={t('paused')} onClick={() => api(`/jobs/${j.id}`, { active: !j.active }, { method: 'PATCH' }).then(reload)}>{j.active ? '⏸' : '⏵'}</button>
+                  <button className="mini" title="delete" onClick={() => api(`/jobs/${j.id}`, undefined, { method: 'DELETE' }).then(reload)}>✕</button>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+
+        {!onboarding && tab === 'health' && (
           <>
             <p className="hint">🎙️ {t('healthHint')}</p>
             <div className="metrics">
@@ -475,7 +514,7 @@ function Home({ state, reload }) {
           </>
         )}
 
-        {tab === 'family' && (
+        {!onboarding && tab === 'family' && (
           <>
             {state.family.map((f) => {
               const b = state.birthdays.find((x) => x.name === f.name)
@@ -506,27 +545,37 @@ function Home({ state, reload }) {
           <>
             <button className="side" onClick={() => setTyping(true)} aria-label="keyboard">⌨️</button>
             <Orb phase={rec.phase} level={rec.level} onClick={() => (setTab('today'), rec.toggle())} label={t('tapSpeak')} />
-            <button className="side" onClick={brief} aria-label={t('morning')}>☀️</button>
+            {onboarding ? <span className="side ghost-space" /> : <button className="side" onClick={brief} aria-label={t('morning')}>☀️</button>}
           </>
         )}
       </div>
-      <nav className="tabs">
-        {['today', 'health', 'family'].map((k) => (
-          <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>
-            <span>{{ today: '🏠', health: '❤️', family: '👨‍👩‍👧' }[k]}</span>
-            {t(k)}
-          </button>
-        ))}
-      </nav>
+      {!onboarding && (
+        <nav className="tabs">
+          {['today', 'routine', 'health', 'family'].map((k) => (
+            <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>
+              <span>{{ today: '🏠', routine: '⏰', health: '❤️', family: '👨‍👩‍👧' }[k]}</span>
+              {t(k)}
+            </button>
+          ))}
+        </nav>
+      )}
 
       {firing && (
         <div className="ring fade">
           <div className="ring-card">
             <div className="ring-icon">{KIND[firing.kind] ?? '⏰'}</div>
-            <time>{firing.time}</time>
-            <p>{firing.text}</p>
-            <button className="primary big" onClick={() => closeReminder(true)}>✓ {t('done')}</button>
-            <button className="ghost" onClick={() => closeReminder(false)}>{t('later')}</button>
+            <time>{new Date(firing.at).toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })}</time>
+            <b className="ring-title">{firing.title}</b>
+            {firing.kind !== 'escalation' && <p>{firing.text}</p>}
+            {firing.cards?.map((c, i) => <Card key={i} c={c} t={t} lang={lang} />)}
+            {firing.status === 'pending' ? (
+              <>
+                <button className="primary big" onClick={() => closeEvent('done')}>✓ {t('done')}</button>
+                <button className="ghost" onClick={() => closeEvent('snoozed')}>⏰ {t('snooze')}</button>
+              </>
+            ) : (
+              <button className="primary big" onClick={() => closeEvent()}>{t('ok')}</button>
+            )}
           </div>
         </div>
       )}
@@ -542,7 +591,7 @@ function App() {
   return (
     <div className="stage">
       <div className="phone">
-        {err ? <p className="err">{err}</p> : !state ? <div className="boot"><img src="/icon.svg" alt="" /></div> : state.profile ? <Home state={state} reload={reload} /> : <Onboarding state={state} onDone={reload} />}
+        {err ? <p className="err">{err}</p> : !state ? <div className="boot"><img src="/icon.svg" alt="" /></div> : state.profile ? <Home state={state} reload={reload} /> : <Welcome state={state} onStarted={reload} />}
       </div>
     </div>
   )
