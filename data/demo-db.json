@@ -12,11 +12,13 @@
     "medicines": [
       {
         "name": "Amlodipine",
-        "time": "08:00"
+        "time": "08:00",
+        "stock": 22
       },
       {
         "name": "Metformin",
-        "time": "21:00"
+        "time": "21:00",
+        "stock": 40
       }
     ],
     "wake_time": "05:30",
@@ -34,7 +36,8 @@
     "doctor": {
       "name": "Dr. Mehra Clinic",
       "phone": "+910000000099"
-    }
+    },
+    "gender": "female"
   },
   "family": [
     {
@@ -103,7 +106,21 @@
   "memories": [
     {
       "fact": "Grows tulsi and roses on the balcony",
+      "about": null,
+      "followUp": false,
       "date": "2026-11-08"
+    },
+    {
+      "fact": "Knee pain while climbing stairs",
+      "about": "knee",
+      "followUp": true,
+      "date": "2026-11-09"
+    },
+    {
+      "fact": "Anya has a dance recital on Saturday",
+      "about": "Anya",
+      "followUp": true,
+      "date": "2026-11-09"
     }
   ],
   "chat": [],
@@ -170,7 +187,8 @@
       "escalateAfterMin": 30,
       "escalateTo": "Rahul",
       "active": true,
-      "created": 0
+      "created": 0,
+      "med": "Amlodipine"
     },
     {
       "id": "j5",
@@ -220,7 +238,8 @@
       "escalateAfterMin": 30,
       "escalateTo": "Rahul",
       "active": true,
-      "created": 0
+      "created": 0,
+      "med": "Metformin"
     },
     {
       "id": "j8",
@@ -275,5 +294,22 @@
     }
   ],
   "events": [],
-  "push": []
+  "push": [],
+  "moods": [
+    {
+      "score": 4,
+      "feelings": [
+        "happy"
+      ],
+      "note": "Anya called",
+      "at": 1794200400000,
+      "date": "2026-11-09"
+    }
+  ],
+  "orders": [],
+  "feed": [],
+  "messages": [],
+  "voices": {},
+  "daily": {},
+  "lastActive": 0
 }

@@ -3,13 +3,14 @@ import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import webpush from 'web-push'
 import { nextRun, timesOn, dateOf, timeOf, at, addDays } from './jobs.js'
+import { pharmacyClient, partnerRouter, demoStores } from './pharmacy.js'
 
 const file = (f) => new URL(`./data/${f}`, import.meta.url)
 const read = (f) => JSON.parse(fs.readFileSync(file(f), 'utf8'))
 const festivals = read('festivals.json')
 const schemes = read('schemes.json')
 
-const empty = () => ({ profile: null, family: [], health: [], jobs: [], events: [], memories: [], chat: [], push: [] })
+const empty = () => ({ profile: null, family: [], health: [], jobs: [], events: [], memories: [], chat: [], push: [], moods: [], orders: [], feed: [], messages: [], voices: {}, daily: {}, lastActive: 0 })
 const DB = process.env.DB_FILE || 'db.json' // a separate file lets a test server run beside the real one
 let db = fs.existsSync(file(DB)) ? { ...empty(), ...read(DB) } : empty()
 // ponytail: one JSON file with sync writes, one elder per server. Move to SQLite for many users.
@@ -30,8 +31,9 @@ const PERSONAS = {
 const LANGS = { 'hi-IN': 'Hindi', 'en-IN': 'English', 'ta-IN': 'Tamil', 'te-IN': 'Telugu', 'kn-IN': 'Kannada', 'ml-IN': 'Malayalam', 'mr-IN': 'Marathi', 'pa-IN': 'Punjabi', 'bn-IN': 'Bengali', 'gu-IN': 'Gujarati' }
 
 // Clock. DEMO_DATE (YYYY-MM-DD) moves the whole clock to that day (for demo videos), keeping the time of day.
-const demoShift = process.env.DEMO_DATE ? Date.parse(process.env.DEMO_DATE) - Date.parse(dateOf(Date.now())) : 0
-const now = () => Date.now() + demoShift
+// The demo panel can also set the clock (POST /api/demo/clock) so a scheduled job fires on camera.
+let shift = process.env.DEMO_DATE ? Date.parse(process.env.DEMO_DATE) - Date.parse(dateOf(Date.now())) : 0
+const now = () => Date.now() + shift
 const ist = () => {
   const n = now()
   const date = dateOf(n)
@@ -206,7 +208,14 @@ const T = {
   log_health: fn('log_health', 'Save a health reading. Returns normal/high/low.', { type: { type: 'string', enum: ['bp', 'sugar', 'pulse', 'weight', 'temperature', 'spo2', 'other'] }, value: { ...S, description: 'e.g. "150/95"' }, note: S }, ['type', 'value']),
   save_profile: fn('save_profile', 'Save facts about the user as soon as you learn them.', { name: S, gender: { ...S, description: 'female|male' }, age: N, city: S, religion: { ...S, description: 'hindu|muslim|sikh|christian|jain|buddhist|other' }, conditions: { type: 'array', items: S, description: 'English' }, medicines: { type: 'array', items: { type: 'object', properties: { name: S, time: S } } }, wake_time: S, puja_time: S, bhajan: S, interests: { type: 'array', items: S, description: 'English news topics' }, doctor_name: S, doctor_phone: S }),
   add_family: fn('add_family', 'Save or update a family member or friend.', { name: S, relation: S, phone: S, birthday_day: { ...N, description: 'day of month 1-31' }, birthday_month: { ...N, description: 'month 1-12 (November = 11)' }, city: S }, ['name', 'relation']),
-  remember: fn('remember', 'Save a personal fact worth remembering (likes, worries, stories).', { fact: S }, ['fact']),
+  remember: fn('remember', 'Save a personal fact worth remembering (likes, worries, stories, plans). Set follow_up when you should ask about it again later (pain, a worry, an exam, a doctor visit).', { fact: S, about: { ...S, description: 'person or thing it is about, e.g. "Anya" or "knee"' }, follow_up: { type: 'boolean' } }, ['fact']),
+  log_mood: fn('log_mood', 'Record how they feel whenever they show a feeling (happy, lonely, sad, pain, worried, tired, excited).', { score: { ...N, description: '1 very low .. 5 very happy' }, feelings: { type: 'array', items: S, description: 'English words' }, note: { ...S, description: 'why, in short English' } }, ['score', 'feelings']),
+  update_stock: fn('update_stock', 'Save how many tablets of a medicine are left at home.', { medicine: S, count: N }, ['medicine', 'count']),
+  find_medicine: fn('find_medicine', 'Compare prices for a medicine across connected pharmacies (cheapest first, generics included).', { name: S, tablets_left: { ...N, description: 'if they said how many are left' } }, ['name']),
+  order_medicine: fn('order_medicine', 'Order a medicine. It goes to their family for approval and payment, then gets tracked to the door.', { name: S, sku: { ...S, description: 'offer sku from find_medicine; omit for the cheapest' }, strips: N }, ['name']),
+  order_status: fn('order_status', 'Status of medicine orders.'),
+  read_messages: fn('read_messages', 'Unread messages on their phone, already summarised, with scam flags.'),
+  message_family: fn('message_family', 'Send a short message from them to a family member.', { to: S, text: S }, ['to', 'text']),
   finish_onboarding: fn('finish_onboarding', 'Call once name, age, city, health, family and the routine jobs are saved.'),
   get_weather: fn('get_weather', 'Weather and air quality now.'),
   get_news: fn('get_news', 'Calm news headlines on a topic.', { topic: S }, ['topic']),
@@ -214,13 +223,62 @@ const T = {
   draft_whatsapp: fn('draft_whatsapp', 'Show a WhatsApp message the user shares (festival or birthday wishes, news to family).', { message: S, to: { ...S, description: 'family name, optional' } }, ['message']),
   play_youtube: fn('play_youtube', 'Play a bhajan, song, kirtan or video.', { query: S }, ['query']),
   call_contact: fn('call_contact', 'Show a call button for a family member or the doctor.', { name: S }, ['name']),
-  order: fn('order', 'Order food or medicine, or pay a bill or recharge (demo).', { kind: { type: 'string', enum: ['food', 'medicine', 'recharge', 'bill'] }, item: S }, ['kind', 'item']),
+  food_or_bill: fn('food_or_bill', 'Order food, or pay an electricity bill or mobile recharge (demo). Never for medicines.', { kind: { ...S, description: 'food|recharge|bill' }, item: S }, ['kind', 'item']),
 }
 const pick = (...names) => names.map((n) => T[n])
 const TOOLSETS = {
   chat: Object.keys(T).filter((n) => n !== 'finish_onboarding').map((n) => T[n]),
   onboard: pick('save_profile', 'add_family', 'remember', 'finish_onboarding'),
-  job: pick('play_youtube', 'get_news', 'get_weather', 'draft_whatsapp', 'call_contact', 'get_schemes'),
+  job: pick('play_youtube', 'get_news', 'get_weather', 'draft_whatsapp', 'call_contact', 'get_schemes', 'find_medicine', 'read_messages'),
+}
+
+// ---------- medicines: stock, pharmacy partners, approval, tracking ----------
+const PORT = process.env.PORT || 8790
+const PHARMACY_BASES = (process.env.PHARMACY_APIS || demoStores.map((s) => `http://localhost:${PORT}/partner/pharmacy/${s}`).join(',')).split(',')
+const pharmacy = pharmacyClient(PHARMACY_BASES)
+const medKey = (s) => String(s ?? '').toLowerCase().split(/[\s(]/)[0]
+const medsOf = () => {
+  // One entry per medicine name; perDay counts how many reminder times it has.
+  const out = {}
+  for (const m of db.profile?.medicines ?? []) {
+    const k = medKey(m.name)
+    out[k] ??= { key: k, name: m.name, times: [], stock: m.stock ?? null }
+    out[k].times.push(m.time)
+    if (m.stock != null) out[k].stock = m.stock
+  }
+  return Object.values(out).map((m) => ({ ...m, perDay: m.times.length || 1, daysLeft: m.stock == null ? null : Math.floor(m.stock / (m.times.length || 1)) }))
+}
+const setStock = (name, count) => {
+  for (const m of db.profile?.medicines ?? []) if (medKey(m.name) === medKey(name)) m.stock = Math.max(0, Math.round(count))
+}
+const openOrder = (name) => db.orders.find((o) => medKey(o.med) === medKey(name) && !['delivered', 'declined'].includes(o.status))
+const packSize = (pack) => +String(pack).match(/\d+/)?.[0] || 10
+
+// A taken medicine dose lowers the stock by one tablet.
+function doseTaken(ev) {
+  const job = db.jobs.find((j) => j.id === ev?.jobId)
+  if (job?.med) for (const m of db.profile?.medicines ?? []) if (medKey(m.name) === medKey(job.med) && m.stock > 0) return void m.stock--
+}
+
+async function placeApproved(o) {
+  const r = await pharmacy.place(o.offer.base, o.offer.sku, o.qty, o.id)
+  Object.assign(o, { status: 'placed', partnerId: r.order_id })
+  o.history.push({ status: 'placed', at: now() })
+}
+
+// ---------- family channel (the son's or daughter's phone) ----------
+function notifyFamily(kind, title, text, extra = {}) {
+  const item = { id: uid(), at: now(), kind, title, text, ...extra }
+  db.feed.push(item)
+  db.feed = db.feed.slice(-100)
+  broadcast(item, 'family')
+  return item
+}
+const onceToday = (key) => {
+  const d = ist().date
+  db.daily[d] ??= {}
+  if (db.daily[d][key]) return false
+  return (db.daily[d][key] = true)
 }
 
 const phoneOf = (name) => {
@@ -235,7 +293,7 @@ const TYPES = ['once', 'daily', 'weekly', 'monthly', 'yearly', 'interval', 'fest
 function addJob(a) {
   if (!TYPES.includes(a.schedule?.type)) throw new Error(`schedule.type must be one of ${TYPES.join(', ')}`)
   if (a.schedule.time && !/^\d{2}:\d{2}$/.test(a.schedule.time)) throw new Error('schedule.time must be HH:MM (24h)')
-  const j = { id: uid(), title: untag(a.title), kind: KINDS.includes(a.kind) ? a.kind : 'other', schedule: a.schedule, action: ['say', 'agent', 'brief'].includes(a.action) ? a.action : 'say', routine: !!a.routine, say: a.say || a.title, task: a.task || null, escalateAfterMin: a.escalate_after_min || null, escalateTo: a.escalate_to || null, active: true, created: now() }
+  const j = { id: uid(), title: untag(a.title), kind: KINDS.includes(a.kind) ? a.kind : 'other', schedule: a.schedule, action: ['say', 'agent', 'brief'].includes(a.action) ? a.action : 'say', routine: !!a.routine, med: a.med || null, say: a.say || a.title, task: a.task || null, escalateAfterMin: a.escalate_after_min || null, escalateTo: a.escalate_to || null, active: true, created: now() }
   j.nextRun = nextRun(j.schedule, now(), ctx())
   if (!j.nextRun) throw new Error('this schedule never fires; check date/time')
   db.jobs.push(j)
@@ -243,7 +301,7 @@ function addJob(a) {
 }
 
 // Timbre v3.0 expression tags. Spoken text keeps them; anything shown or shared drops them.
-const untag = (s) => String(s ?? '').replace(/<(laugh|giggle|sigh|exhales|sniffles|yawns|coughs|clears throat|whispers|shouting|excited|slow|pauses)>s*/g, '').trim()
+const untag = (s) => String(s ?? '').replace(/<(laugh|giggle|sigh|exhales|sniffles|yawns|coughs|clears throat|whispers|shouting|excited|slow|pauses)>\s*/g, '').trim()
 const clean = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined && v !== null && v !== '' && !/^(\?|unknown|none|null)$/i.test(String(v))))
 function handlers(cards, flags = {}) {
   const { date } = ist()
@@ -271,6 +329,7 @@ function handlers(cards, flags = {}) {
       const e = latestPending()
       if (!e) return { error: 'nothing pending' }
       e.status = 'done'
+      doseTaken(e)
       return { ok: true, done: e.title }
     },
     snooze: (a) => {
@@ -309,7 +368,54 @@ function handlers(cards, flags = {}) {
       else db.family.push(a)
       return { ok: true }
     },
-    remember: (a) => (db.memories.push({ fact: a.fact, date }), { ok: true }),
+    remember: (a) => (db.memories.push({ fact: a.fact, about: a.about || null, followUp: !!a.follow_up, date }), { ok: true }),
+    log_mood: (a) => {
+      flags.mood = true
+      const score = Math.max(1, Math.min(5, Math.round(+a.score || 3)))
+      const feelings = (a.feelings ?? []).map((f) => String(f).toLowerCase())
+      db.moods.push({ score, feelings, note: a.note || '', at: now(), date })
+      db.moods = db.moods.slice(-200)
+      // A low day reaches the family quietly; the elder is never told "I reported you".
+      const low = score <= 2 || feelings.some((f) => /lonely|sad|pain|hurt|unwell|anxious|worried|scared|crying/.test(f))
+      if (low && onceToday('mood')) {
+        const fam = db.family.find((f) => f.phone) ?? db.family[0]
+        notifyFamily('mood', `${db.profile.name} seems low today`, `Feeling ${feelings.join(', ') || 'low'}${a.note ? ` — ${a.note}` : ''}. A call from you would mean a lot today.`, { to: fam?.name })
+      }
+      return { saved: true }
+    },
+    update_stock: (a) => (setStock(a.medicine, a.count), { ok: true, meds: medsOf() }),
+    find_medicine: async (a) => {
+      if (a.tablets_left != null) setStock(a.name, a.tablets_left)
+      const offers = (await pharmacy.search(a.name)).slice(0, 4)
+      if (!offers.length) return { error: 'no partner has it' }
+      cards.push({ type: 'offers', name: a.name, offers: offers.map(({ base, ...o }) => o) })
+      return offers.map((o) => ({ sku: o.sku, partner: o.partner, name: o.name, strength: o.strength, pack: o.pack, price: o.price, generic: o.generic, eta_hours: o.eta_hours }))
+    },
+    order_medicine: async (a) => {
+      if (openOrder(a.name)) return { error: 'an order for this medicine is already open', order: openOrder(a.name) }
+      const offers = await pharmacy.search(a.name)
+      const offer = offers.find((o) => o.sku === a.sku) ?? offers[0]
+      if (!offer) return { error: 'no partner has it' }
+      const med = medsOf().find((m) => m.key === medKey(a.name))
+      const qty = Math.max(1, Math.round(a.strips || Math.ceil((30 * (med?.perDay ?? 1)) / packSize(offer.pack)))) // about a month
+      const fam = db.family.find((f) => f.phone) ?? db.family[0]
+      const o = { id: uid(), med: offer.name, offer, qty, total: qty * offer.price, status: 'awaiting_approval', approver: fam?.name ?? 'family', history: [{ status: 'awaiting_approval', at: now() }] }
+      db.orders.push(o)
+      notifyFamily('approval', `Approve medicine order for ${db.profile.name}`, `${qty} × ${offer.name} ${offer.strength} (${offer.pack}) from ${offer.partner} · ₹${o.total}`, { orderId: o.id })
+      cards.push({ type: 'order', order: o })
+      return { status: `sent to ${o.approver} for approval and payment`, total: o.total, partner: offer.partner, qty }
+    },
+    order_status: () => db.orders.slice(-5).map((o) => ({ med: o.med, status: o.status, total: o.total, partner: o.offer.partner })),
+    read_messages: () => {
+      const unread = db.messages.filter((m) => !m.read)
+      unread.forEach((m) => (m.read = true))
+      return unread.length ? unread.map((m) => ({ from: m.from, summary: m.summary, scam: m.scam, reason: m.reason })) : 'no new messages'
+    },
+    message_family: (a) => {
+      const fam = phoneOf(a.to)
+      notifyFamily('message', `Message from ${db.profile.name}`, untag(a.text), { to: fam?.name })
+      return { sent: true, to: fam?.name }
+    },
     finish_onboarding: () => {
       const left = missing().concat(db.chat.filter((m) => m.role === 'user').length < 8 ? missing(NICE) : [])
       if (left.length) return { error: `not yet: first ask about ${left.join(', ')}` }
@@ -337,9 +443,9 @@ function handlers(cards, flags = {}) {
       return { shown: true, name: c.name }
     },
     // ponytail: mock commerce. Wire a real food/pharmacy MCP or BBPS biller here after the demo.
-    order: (a) => {
+    food_or_bill: (a) => {
       const eta = { food: '35 min', medicine: '2 hours', recharge: 'instant', bill: 'instant' }[a.kind]
-      cards.push({ type: 'order', kind: a.kind, item: a.item, eta })
+      cards.push({ type: 'purchase', kind: a.kind, item: a.item, eta })
       return { placed: true, eta, note: 'demo order, no real payment' }
     },
   }
@@ -376,11 +482,16 @@ function facts() {
 - Now: ${n.weekday} ${n.date}, ${n.time} IST.
 - User: ${p.name ?? '?'}, ${p.gender ?? 'gender ?'}, age ${p.age ?? '?'}, ${p.city ?? '?'}, religion ${p.religion ?? '?'}.
 - Festivals: ${when(upcomingFestivals(14).map((f) => [f.name + (f.bhajan ? ` (bhajan: ${f.bhajan})` : ''), f.date]))}
-- Health: ${p.conditions?.join(', ') || '?'}. Medicines: ${(p.medicines ?? []).map((m) => `${m.name} ${m.time}`).join(', ') || '?'}. Doctor: ${p.doctor?.name ?? '?'}
+- Health: ${p.conditions?.join(', ') || '?'}. Doctor: ${p.doctor?.name ?? '?'}
+- Medicines: ${medsOf().map((m) => `${m.name} at ${m.times.join(' & ')}, ${m.stock == null ? 'stock unknown' : `${m.stock} tablets left (${m.daysLeft} days)`}`).join('; ') || '?'}
+- Medicine orders: ${db.orders.filter((o) => o.status !== 'delivered').map((o) => `${o.med} ${o.status}`).join('; ') || 'none open'}
 - Routine: wakes ${p.wake_time ?? '?'}, puja ${p.puja_time ?? '?'} with ${p.bhajan ?? '?'}. Interests: ${p.interests?.join(', ') || '?'}
 - Family: ${db.family.map((f) => `${f.name} (${f.relation}${f.phone ? ', phone' : ''}${f.birthday ? ', bday ' + f.birthday : ''})`).join(', ') || 'none yet'}. Birthdays soon: ${when(upcomingBirthdays().map((b) => [b.name, b.next]))}
 - Recent readings: ${db.health.slice(-4).map((h) => `${h.type} ${h.value} on ${h.date}`).join(', ') || 'none'}
-- They told you: ${db.memories.slice(-10).map((m) => m.fact).join('; ') || '-'}
+- Mood lately: ${db.moods.slice(-4).map((m) => `${m.date} ${m.score}/5 ${m.feelings.join('/')}${m.note ? ` (${m.note})` : ''}`).join('; ') || 'not known yet'}
+- They told you: ${db.memories.slice(-10).map((m) => `${m.fact} (${m.date})`).join('; ') || '-'}
+- Ask about these again if it fits (open threads from the last week): ${db.memories.filter((m) => m.followUp && Date.parse(m.date) >= Date.parse(addDays(n.date, -7))).map((m) => `${m.fact} (${m.date})`).join('; ') || 'none'}
+- Unread messages: ${db.messages.filter((m) => !m.read).length}
 - Jobs: ${db.jobs.length} scheduled. Today: ${today.join('; ') || 'nothing'}
 - Pending reminder: ${latestPending()?.title ?? 'none'}`
 }
@@ -390,7 +501,12 @@ const RULES = {
 - Pick the schedule type from the words: "kal" / "tomorrow" / "parson" / a date = once (compute the YYYY-MM-DD from Now); "roz" / "har din" / "daily" = daily; "har Somvaar" = weekly; "har mahine" = monthly; "har saal" = yearly; "har 2 ghante" = interval. If it is unclear whether it repeats, use once.
 - A reading (BP, sugar) means log_health. "Done", "took it" means mark_done. "Later" means snooze.
 - For wishes call draft_whatsapp, then do NOT read the message out; just say it is ready to share.
-- Give only calm, useful news.`,
+- Give only calm, useful news.
+- Whenever they show a feeling, call log_mood (quietly; never say you are reporting anything). Pain, worries and plans go to remember with follow_up, so you can ask about them on another day ("Kal ghutna dard kar raha tha, aaj kaisa hai?").
+- Medicines running out: tell them how many days are left, call find_medicine, say the best price in one line (mention a cheaper generic if there is one), and order with order_medicine only after they say yes. Say their family will approve and pay, and that you will tell them when it arrives.
+- When they say how many tablets are left, call update_stock first.
+- "Koi message aaya?" means read_messages. If a message is a scam (OTP, KYC, lottery, prize, blocked account, refund link), warn them firmly: never share an OTP or click links.
+- If they want to tell family something ("Rahul ko bolo..."), use message_family.`,
   onboard: `This is your FIRST meeting. Get to know them warmly, one question at a time, and follow up naturally on what they say:
 name; age and city; religion; health problems and medicines with times; daily routine (wake time, puja and favourite bhajan, walk, meals); family (names, relation, phone, birthday); their doctor; what news they like.
 - Save every fact the moment you hear it (save_profile, add_family, remember). If they say many things at once, save them all. Save their gender from their name and how they speak of themselves (e.g. "main jaati hoon" = female, "main jaata hoon" = male).
@@ -415,7 +531,7 @@ async function finishOnboarding(cards) {
   if (p.wake_time) plan.push({ key: 'wake', kind: 'wake', schedule: { type: 'daily', time: p.wake_time }, action: 'say' })
   if (p.wake_time) plan.push({ key: 'brief', kind: 'brief', schedule: { type: 'daily', time: plus(p.wake_time, 30) }, action: 'brief' })
   if (p.puja_time) plan.push({ key: 'puja', kind: 'puja', schedule: { type: 'daily', time: p.puja_time }, action: 'agent', task: `Greet them for puja and play ${p.bhajan || 'a morning bhajan'}` })
-  for (const m of p.medicines ?? []) if (/^\d{2}:\d{2}$/.test(m.time ?? '')) plan.push({ key: 'med ' + m.name, kind: 'medicine', schedule: { type: 'daily', time: m.time }, action: 'say', escalate_after_min: fam ? 30 : null, escalate_to: fam?.name })
+  for (const m of p.medicines ?? []) if (/^\d{2}:\d{2}$/.test(m.time ?? '')) plan.push({ key: 'med ' + m.name, med: m.name, kind: 'medicine', schedule: { type: 'daily', time: m.time }, action: 'say', escalate_after_min: fam ? 30 : null, escalate_to: fam?.name })
   if (p.conditions?.length) plan.push({ key: 'health', kind: 'health', schedule: { type: 'daily', time: '09:00' }, action: 'say' })
   plan.push({ key: 'water', kind: 'water', schedule: { type: 'interval', everyMinutes: 120, from: '10:00', to: '18:00' }, action: 'say' })
   if (p.religion === 'hindu') plan.push({ key: 'ekadashi', kind: 'festival', schedule: { type: 'festival', festival: 'ekadashi', time: p.puja_time || '07:00' }, action: 'agent', task: 'Wish them a happy Ekadashi and play Vishnu Sahasranamam' })
@@ -440,13 +556,23 @@ About them: ${JSON.stringify({ medicines: p.medicines, bhajan: p.bhajan, conditi
   return out.summary ?? ''
 }
 
+// Clear feeling words in Hinglish, Hindi and English. ponytail: keywords; the model's log_mood covers the rest.
+const FEELINGS = {
+  lonely: /akel[aie]|lonely|alone|अकेल|तन्हा/i,
+  sad: /udaas|udas|dukh|sad|rona|उदास|दुख|रोना/i,
+  pain: /dard|pain|hurt|takleef|दर्द|तकलीफ|पीड़ा/i,
+  worried: /tension|pareshan|chinta|ghabra|worried|anxious|टेंशन|परेशान|चिंता|घबरा/i,
+  unwell: /bimar|beemar|tabiyat (theek|thik) nahi|unwell|sick|fever|bukhar|बीमार|बुखार|तबीयत ठीक नहीं/i,
+  happy: /khush|happy|maza aa|bahut accha|खुश|मज़ा/i,
+}
+
 // Hindi marks the speaker's gender on first-person verbs ("main samajhti/samajhta hoon", "dilaungi/dilaunga").
 // These endings only ever describe the speaker, so fix any slip to match the persona.
 // ponytail: Hindi only; other languages rely on the prompt.
 function fixGender(text) {
   if (!text) return text
   const male = db.profile?.persona === 'male'
-  const pairs = [['ती हूँ', 'ता हूँ'], ['रही हूँ', 'रहा हूँ'], ['ऊँगी', 'ऊँगा'], ['ूँगी', 'ूँगा'], ['गई हूँ', 'गया हूँ'], ['सकती हूँ', 'सकता हूँ']]
+  const pairs = [['ती हूँ', 'ता हूँ'], ['रही हूँ', 'रहा हूँ'], ['ऊँगी', 'ऊँगा'], ['ूँगी', 'ूँगा'], ['गई हूँ', 'गया हूँ'], ['सकती हूँ', 'सकता हूँ'], ['ती रहूँ', 'ता रहूँ']]
   for (const [f, m] of pairs) text = male ? text.split(f).join(m) : text.split(m).join(f)
   return text
 }
@@ -459,8 +585,16 @@ async function agent(text, lang, mode = 'chat', { hidden = false } = {}) {
   const messages = [{ role: 'system', content: system }, ...db.chat.slice(mode === 'onboard' ? -12 : -8), { role: 'user', content: text }]
   let reply = ''
   for (let i = 0; i < 6 && !reply; i++) {
-    const { role, content, tool_calls } = await llm(messages, { tools: TOOLSETS[mode] })
-    messages.push({ role, content: content ?? '', ...(tool_calls?.length && { tool_calls }) })
+    let { role, content, tool_calls } = await llm(messages, { tools: TOOLSETS[mode] })
+    // gpt-oss sometimes writes a tool call into the text ("<commentary to=functions.log_mood>{...}").
+    // Run it as a real call and keep it out of the spoken reply.
+    const leaked = [...String(content ?? '').matchAll(/<\|?[^>]*to=functions\.(\w+)[^>]*>\s*(?:<\|message\|>)?\s*(\{[\s\S]*?\})(?=\s*(?:<|$))/g)]
+    if (leaked.length && !tool_calls?.length) {
+      tool_calls = leaked.filter(([, name]) => h[name]).map(([, name, args], i) => ({ id: 'leak' + i, type: 'function', function: { name, arguments: args } }))
+      content = String(content).slice(0, leaked[0].index).trim()
+    }
+    content = String(content ?? '').replace(/<\|[^>]*\|>|<commentary[\s\S]*$/g, '').trim()
+    messages.push({ role, content, ...(tool_calls?.length && { tool_calls }) })
     if (!tool_calls?.length) reply = content ?? ''
     for (const tc of tool_calls ?? []) {
       let out
@@ -469,10 +603,16 @@ async function agent(text, lang, mode = 'chat', { hidden = false } = {}) {
       } catch (e) {
         out = { error: e.message }
       }
+      if (process.env.DEBUG_TOOLS) console.log('tool', tc.function.name, tc.function.arguments, '->', JSON.stringify(out ?? null).slice(0, 160))
       messages.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(out ?? null) })
     }
   }
   if (!hidden) db.chat.push({ role: 'user', content: text })
+  // Feelings matter too much to depend on the model calling log_mood: catch the clear words too.
+  if (mode === 'chat' && !flags.mood) {
+    const hits = Object.entries(FEELINGS).filter(([, re]) => re.test(text)).map(([f]) => f)
+    if (hits.length) await h.log_mood({ score: hits.some((f) => f !== 'happy') ? 2 : 4, feelings: hits, note: text.slice(0, 80) })
+  }
   if (mode === 'onboard' && (flags.finish || done())) {
     const summary = await finishOnboarding(cards).catch((e) => (console.error('routine failed', e), ''))
     reply = [reply, summary].filter(Boolean).join(' ')
@@ -497,7 +637,7 @@ async function brief() {
 }
 
 // ---------- live events: SSE to open apps, Web Push to closed ones ----------
-const clients = new Set()
+const clients = new Map()
 let vapid
 try {
   vapid = fs.existsSync(file('vapid.json')) ? read('vapid.json') : webpush.generateVAPIDKeys()
@@ -506,9 +646,11 @@ try {
 } catch (e) {
   console.error('push disabled', e.message)
 }
-function broadcast(ev) {
-  for (const res of clients) res.write(`data: ${JSON.stringify(ev)}\n\n`)
-  const payload = JSON.stringify({ title: ev.title, body: ev.text?.slice(0, 180), tag: ev.id })
+// audience: 'elder' (the elder's app, plus Web Push) or 'family' (the family app).
+function broadcast(ev, audience = 'elder') {
+  for (const [res, who] of clients) if (who === audience) res.write(`data: ${JSON.stringify(ev)}\n\n`)
+  if (audience !== 'elder') return
+  const payload = JSON.stringify({ title: untag(ev.title), body: untag(ev.text).slice(0, 180), tag: ev.id })
   for (const sub of db.push)
     webpush.sendNotification(sub, payload).catch((e) => {
       if (e.statusCode === 404 || e.statusCode === 410) (db.push = db.push.filter((s) => s.endpoint !== sub.endpoint)), save()
@@ -544,6 +686,56 @@ function escalate(ev) {
   const alert = { id: uid(), title: `${ev.title} ✗`, kind: 'escalation', at: now(), status: 'info', text: msg, cards: fam ? [{ type: 'escalation', family: fam, message: msg, url: waLink(fam.phone, msg) }] : [] }
   db.events.push(alert)
   broadcast(alert)
+  notifyFamily('missed_dose', `${db.profile.name} has not confirmed ${untag(ev.title)}`, `Reminder at ${timeOf(ev.at)} was not confirmed. Please give a call.`, { to: fam?.name })
+}
+
+// The companion speaks up on its own (low stock, a quiet morning, an order update).
+async function agentEvent(kind, title, task, extra = {}) {
+  const ev = { id: uid(), title, kind, at: now(), status: 'info', text: '', cards: [], ...extra }
+  try {
+    const r = await agent(`(${task})`, db.profile.language, 'job', { hidden: true })
+    Object.assign(ev, { text: r.reply, cards: r.cards })
+  } catch (e) {
+    console.error('agent event failed', title, e.message)
+    if (!ev.text) return null
+  }
+  db.events.push(ev)
+  broadcast(ev)
+  return ev
+}
+
+// Evening summary for the family: medicines, mood, readings, what they talked about.
+async function familyDigest() {
+  const d = ist().date
+  const evs = db.events.filter((e) => dateOf(e.at) === d && e.kind === 'medicine')
+  const facts = {
+    medicines: { taken: evs.filter((e) => e.status === 'done').length, missed: evs.filter((e) => e.status === 'missed').length, total: evs.length },
+    moods: db.moods.filter((m) => m.date === d),
+    readings: db.health.filter((h) => h.date === d),
+    talk: db.chat.filter((m) => m.role === 'user').slice(-8).map((m) => m.content),
+    orders: db.orders.filter((o) => o.status !== 'delivered').map((o) => `${o.med}: ${o.status}`),
+  }
+  const msg = await llm([{ role: 'user', content: `Write a warm 3-sentence evening update in simple English for ${db.profile.name}'s family: how the day went (medicines, mood, readings), one thing they talked about, and one small suggestion (for example a call). No lists. Facts: ${JSON.stringify(facts)}` }], { temperature: 0.4 })
+  return notifyFamily('digest', `Today with ${db.profile.name}`, untag(msg.content), { stats: facts.medicines })
+}
+
+// Move medicine orders forward by polling the partner API (a webhook would replace this).
+async function trackOrders() {
+  for (const o of db.orders.filter((x) => x.partnerId && x.status !== 'delivered')) {
+    const s = await pharmacy.status(o.offer.base, o.partnerId).catch(() => null)
+    if (!s || s.status === o.status) continue
+    o.status = s.status
+    o.history.push({ status: s.status, at: now() })
+    if (s.status === 'out_for_delivery') {
+      notifyFamily('order', `${o.med} is out for delivery`, `${o.offer.partner} · order ${o.partnerId}`, { orderId: o.id })
+      await agentEvent('order', o.med, `Their medicine order of ${o.med} is out for delivery and will reach soon. Tell them happily in one sentence.`)
+    }
+    if (s.status === 'delivered') {
+      for (const m of db.profile?.medicines ?? []) if (medKey(m.name) === medKey(o.med)) m.stock = (m.stock ?? 0) + o.qty * packSize(o.offer.pack)
+      notifyFamily('order', `${o.med} delivered`, `Stock is now enough for about a month.`, { orderId: o.id })
+      await agentEvent('order', o.med, `Their ${o.med} has been delivered. Tell them warmly, and remind them to keep it in the usual place.`)
+    }
+  }
 }
 
 let ticking = false
@@ -552,6 +744,7 @@ async function tick() {
   ticking = true
   try {
     const n = now()
+    const { time } = ist()
     for (const j of db.jobs.filter((x) => x.active && x.nextRun && x.nextRun <= n)) {
       if (n - j.nextRun < 60 * 60000) await fire(j) // skip runs missed by more than an hour (server was off)
       j.lastRun = j.nextRun
@@ -559,6 +752,15 @@ async function tick() {
       if (!j.nextRun) j.active = false
     }
     for (const e of db.events.filter((x) => x.status === 'pending' && x.escalateAt && x.escalateAt <= n)) escalate(e)
+    await trackOrders()
+    // Low stock: the companion offers to reorder, once a day per medicine.
+    for (const m of medsOf()) if (m.daysLeft != null && m.daysLeft <= 5 && !openOrder(m.name) && time >= '09:30' && onceToday('stock:' + m.key))
+      await agentEvent('medicine', m.name, `${m.name} has only ${m.stock} tablets left, about ${m.daysLeft} days. Tell them, call find_medicine, say the best price in one line, and ask if you should order it (family will approve and pay).`)
+    // A quiet morning: check in at 11:00, tell family at 13:00 if still nothing.
+    const since = at(ist().date, '05:00')
+    if (time >= '11:00' && db.lastActive < since && onceToday('checkin')) await agentEvent('call', 'check-in', `You have not heard from them at all today. Call out warmly, ask if all is well.`)
+    if (time >= '13:00' && db.lastActive < since && onceToday('inactive')) notifyFamily('inactive', `No word from ${db.profile.name} today`, `No reply since morning, even after a check-in. Please give a call.`)
+    if (time >= '20:00' && onceToday('digest')) await familyDigest().catch((e) => console.error('digest', e.message))
     save()
   } finally {
     ticking = false
@@ -583,6 +785,7 @@ app.get('/api/state', wrap(async (req, res) => {
   res.json({
     profile: p, family: db.family, health: db.health, memories: db.memories,
     jobs: db.jobs.map(describeJob), today, events: db.events.slice(-20), chat: db.chat.slice(-10),
+    meds: p ? medsOf() : [], orders: db.orders.slice(-6), moods: db.moods.slice(-14), messages: db.messages.slice(-10), voices: Object.keys(db.voices),
     persona: p && PERSONAS[p.persona], personas: PERSONAS, langs: LANGS, now: n, vapidKey: vapid?.publicKey,
     festivals: upcomingFestivals(), birthdays: upcomingBirthdays(), weather: p?.onboarding ? null : await weather().catch(() => null),
   })
@@ -592,7 +795,7 @@ app.get('/api/stream', (req, res) => {
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' })
   res.flushHeaders()
   res.write(': hi\n\n')
-  clients.add(res)
+  clients.set(res, req.query.who === 'family' ? 'family' : 'elder')
   const ping = setInterval(() => res.write(': ping\n\n'), 25000)
   req.on('close', () => (clearInterval(ping), clients.delete(res)))
 })
@@ -618,18 +821,25 @@ app.post('/api/stt', express.raw({ type: '*/*', limit: '10mb' }), wrap(async (re
     return [r, await safeJson(r)]
   })
   if (!r.ok || !j.success) throw new Error(`Prisma ${r.status}: ${JSON.stringify(j).slice(0, 300)}`)
+  db.lastActive = now()
   res.json({ text: j.transcript, lang: j.detected_language_code || lang || 'hi-IN' })
 }))
 
 // Text to speech with the persona's voice. Slightly slow for older ears.
 app.post('/api/tts', express.json(), wrap(async (req, res) => {
-  const { text, lang, persona } = req.body
+  const { text, lang, persona, voiceOf } = req.body
   const voice = PERSONAS[persona ?? db.profile?.persona ?? 'female'].voice
+  const audio_config = { sample_rate: 24000, num_channels: 1, sample_width: 2, encoding: 'linear_pcm', container: 'wav' }
+  // A family member's message is read in their own cloned voice (Gnani voice cloning), if they recorded one.
+  const clone = voiceOf && db.voices[voiceOf]
+  const body = clone
+    ? { text: untag(text), model: 'vachana-vc-v1', speaker_embedding: clone, audio_config }
+    : { text, voice, model: 'timbre-v3.0', language: LANGS[lang] ? lang : 'auto', speed: 0.92, audio_config }
   const [r, buf] = await inLine('tts', async () => {
     const r = await fetchRetry(`${GNANI}/api/v1/tts/inference`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-API-Key-ID': KEY },
-      body: JSON.stringify({ text, voice, model: 'timbre-v3.0', language: LANGS[lang] ? lang : 'auto', speed: 0.92, audio_config: { sample_rate: 24000, num_channels: 1, sample_width: 2, encoding: 'linear_pcm', container: 'wav' } }),
+      body: JSON.stringify(body),
     })
     return [r, Buffer.from(await r.arrayBuffer())]
   })
@@ -648,6 +858,7 @@ app.post('/api/start', express.json(), wrap(async (req, res) => {
 
 app.post('/api/chat', express.json(), wrap(async (req, res) => {
   if (!db.profile) return res.status(400).json({ error: 'start first' })
+  db.lastActive = now()
   res.json(await agent(String(req.body.text).slice(0, 3000), req.body.lang || db.profile.language, db.profile.onboarding ? 'onboard' : 'chat'))
 }))
 
@@ -691,9 +902,142 @@ app.post('/api/events/:id', express.json(), (req, res) => {
     addJob({ title: e.title, kind: e.kind, schedule: { type: 'once', date: dateOf(t), time: timeOf(t) }, action: 'say', say: e.text, escalate_after_min: e.escalateAt ? 20 : null, escalate_to: e.escalateTo })
   }
   e.status = req.body.status
+  if (e.status === 'done') doseTaken(e)
+  db.lastActive = now()
   save()
   res.json({ ok: true })
 })
+
+// ---------- messages on the phone: summary, read aloud, scam shield ----------
+// ponytail: on a real Android phone a NotificationListenerService would feed this endpoint; here messages are posted
+// by the family app or the demo panel.
+const SCAM = /otp|kyc|lottery|prize|won|blocked|suspend|refund|click|link|verify|pan card|aadhaar update|electricity.*disconnect/i
+app.post('/api/messages', express.json(), wrap(async (req, res) => {
+  const { from = 'Unknown', text, channel = 'SMS' } = req.body
+  if (!db.profile || !text) return res.status(400).json({ error: 'need profile and text' })
+  const p = db.profile
+  const fam = db.family.find((f) => f.name.toLowerCase() === String(from).toLowerCase())
+  const msg = await llm([{ role: 'user', content: `A ${channel} message arrived on ${p.name}'s phone from "${from}"${fam ? ` (their ${fam.relation})` : ' (not in contacts)'}:
+"""${String(text).slice(0, 1500)}"""
+Return JSON {"scam": true|false, "reason": "short English", "summary": "one short sentence in ${LANGS[p.language]} (native script) saying who sent it and what it says, as a friend would tell them"}. Scam signs: asks for OTP, PIN, KYC, card or bank details, prizes, lottery, urgent links, threats to cut power or block accounts.` }], { response_format: { type: 'json_object' }, temperature: 0.1 })
+  const r = parseJson(msg.content)
+  const scam = !!r.scam || (!fam && SCAM.test(text))
+  const m = { id: uid(), from, channel, text, summary: untag(r.summary), scam, reason: r.reason, at: now(), read: false }
+  db.messages.push(m)
+  db.messages = db.messages.slice(-100)
+  if (scam) {
+    notifyFamily('scam', `Scam message blocked for ${p.name}`, `From ${from}: "${text.slice(0, 120)}". ${r.reason}. Saathi warned them not to share any OTP or click links.`)
+    await agentEvent('scam', from, `A SCAM ${channel} just came from "${from}": "${text.slice(0, 300)}". Warn them firmly but kindly: do not reply, never share an OTP or click links, and you have told their family. 2 sentences.`, { message: m })
+  } else {
+    // Family messages are read out in the sender's own cloned voice when it exists.
+    const ev = { id: uid(), title: from, kind: 'message', at: now(), status: 'info', text: fam ? untag(text) : m.summary, voiceOf: fam && db.voices[fam.name] ? fam.name : null, cards: [], message: m }
+    db.events.push(ev)
+    broadcast(ev)
+  }
+  save()
+  res.json(m)
+}))
+
+// ---------- family app ----------
+app.get('/api/family/state', (req, res) => {
+  const p = db.profile
+  if (!p) return res.json({ profile: null })
+  const d = ist().date
+  const meds = db.events.filter((e) => dateOf(e.at) === d && e.kind === 'medicine')
+  res.json({
+    profile: { name: p.name, age: p.age, city: p.city, persona: PERSONAS[p.persona]?.name, language: p.language },
+    family: db.family, feed: db.feed.slice(-40).reverse(), orders: db.orders.slice(-6).reverse(), meds: medsOf(),
+    today: { taken: meds.filter((e) => e.status === 'done').length, missed: meds.filter((e) => e.status === 'missed').length, due: meds.length },
+    mood: db.moods.filter((m) => m.date === d).at(-1) ?? db.moods.at(-1) ?? null,
+    moods: db.moods.slice(-14), readings: db.health.slice(-6), lastActive: db.lastActive, voices: Object.keys(db.voices), now: ist(),
+  })
+})
+app.post('/api/family/orders/:id', express.json(), wrap(async (req, res) => {
+  const o = db.orders.find((x) => x.id === req.params.id)
+  if (!o || o.status !== 'awaiting_approval') return res.status(400).json({ error: 'order is not waiting for approval' })
+  if (req.body.approve) {
+    await placeApproved(o) // ponytail: payment is the family's UPI step; add a payment gateway with the real partner
+    await agentEvent('order', o.med, `${o.approver} approved and paid for their ${o.med} order (₹${o.total} from ${o.offer.partner}). Tell them happily that it is on the way.`)
+  } else {
+    o.status = 'declined'
+    o.history.push({ status: 'declined', at: now() })
+  }
+  save()
+  res.json(o)
+}))
+// Record a family member's voice once (5-30 s); Gnani turns it into a speaker embedding.
+app.post('/api/family/voice/:name', express.raw({ type: '*/*', limit: '10mb' }), wrap(async (req, res) => {
+  const fd = new FormData()
+  fd.append('audio_file', new Blob([req.body], { type: 'audio/wav' }), 'voice.wav')
+  const r = await inLine('tts', () => fetchRetry(`${GNANI}/api/v1/tts/voice-clone/embeddings`, { method: 'POST', headers: { 'X-API-Key-ID': KEY }, body: fd }))
+  const j = await safeJson(r)
+  const emb = j.data?.voice_clone_embedding
+  if (!r.ok || !emb?.embedding) throw new Error(`voice clone ${r.status}: ${JSON.stringify(j).slice(0, 200)}`)
+  db.voices[req.params.name] = emb
+  save()
+  res.json({ ok: true, name: req.params.name })
+}))
+
+// ---------- Life Graph: everything Saathi knows, as nodes and edges ----------
+const TREATS = { amlodipine: 'bp', telmisartan: 'bp', metformin: 'sugar', glimepiride: 'sugar', atorvastatin: 'cholesterol', thyroxine: 'thyroid' }
+app.get('/api/graph', (req, res) => {
+  const p = db.profile
+  if (!p) return res.json({ nodes: [], links: [] })
+  const nodes = new Map()
+  const links = []
+  const node = (id, label, type, extra = {}) => (nodes.has(id) || nodes.set(id, { id, label, type, ...extra }), id)
+  const link = (a, b, label) => links.push({ source: a, target: b, label })
+  const me = node('me', p.name ?? 'Me', 'self')
+  link(node('friend', PERSONAS[p.persona]?.name, 'friend', { persona: p.persona }), me, 'friend')
+  if (p.city) link(me, node('place:' + p.city, p.city, 'place'), 'lives in')
+  for (const f of db.family) {
+    const id = node('person:' + f.name, f.name, 'person', { sub: f.relation })
+    link(me, id, f.relation)
+    if (f.city) link(id, node('place:' + f.city, f.city, 'place'), 'lives in')
+    if (f.birthday) link(id, node('date:' + f.name, new Date(`2026-${f.birthday}T12:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }), 'date'), 'birthday')
+  }
+  if (p.doctor?.name) link(me, node('doctor', p.doctor.name, 'person', { sub: 'doctor' }), 'doctor')
+  for (const c of p.conditions ?? []) link(me, node('cond:' + c.toLowerCase(), c, 'condition'), 'has')
+  for (const m of medsOf()) {
+    const id = node('med:' + m.key, m.name, 'medicine', { sub: m.times.join(', '), stock: m.daysLeft })
+    link(me, id, 'takes')
+    const cond = [...nodes.values()].find((n) => n.type === 'condition' && new RegExp(TREATS[m.key] ?? '^$', 'i').test(n.label + (/(pressure|hypertension)/i.test(n.label) ? ' bp' : '') + (/(diabet)/i.test(n.label) ? ' sugar' : '')))
+    if (cond) link(id, cond.id, 'for')
+  }
+  if (p.bhajan) link(me, node('ritual', p.bhajan, 'ritual', { sub: p.puja_time }), 'listens to')
+  for (const i of p.interests ?? []) link(me, node('like:' + i, i, 'interest'), 'likes')
+  for (const m of db.memories.slice(-12)) {
+    const about = m.about && [...nodes.values()].find((n) => n.label.toLowerCase().includes(m.about.toLowerCase()))
+    link(about?.id ?? me, node('mem:' + m.fact, m.fact, 'memory', { sub: m.date, open: m.followUp }), 'said')
+  }
+  for (const m of db.moods.slice(-3)) link(me, node('mood:' + m.at, m.feelings.join(', ') || `${m.score}/5`, 'mood', { sub: m.date, score: m.score }), 'felt')
+  for (const o of db.orders.filter((x) => x.status !== 'delivered')) {
+    const med = [...nodes.values()].find((n) => n.type === 'medicine' && medKey(n.label) === medKey(o.med))
+    link(med?.id ?? me, node('order:' + o.id, o.status.replace(/_/g, ' '), 'order', { sub: o.offer.partner }), 'order')
+  }
+  res.json({ nodes: [...nodes.values()], links })
+})
+
+// ---------- demo controls (for recording; harmless in production) ----------
+app.post('/api/demo/clock', express.json(), (req, res) => {
+  const { time, date } = req.body // IST "HH:MM", optional "YYYY-MM-DD"
+  if (time) shift = at(date || ist().date, time) - Date.now()
+  else shift = 0
+  for (const j of db.jobs) if (j.active) j.nextRun = nextRun(j.schedule, now() - 1000, ctx())
+  save()
+  tick()
+  res.json(ist())
+})
+app.post('/api/demo/stock', express.json(), (req, res) => {
+  const m = medsOf()[0]
+  if (!m) return res.status(400).json({ error: 'no medicines' })
+  setStock(m.name, req.body.count ?? 6)
+  delete db.daily[ist().date]?.['stock:' + m.key]
+  save()
+  tick()
+  res.json(medsOf())
+})
+app.post('/api/demo/digest', wrap(async (req, res) => res.json(await familyDigest())))
 
 app.get('/api/brief', wrap(async (req, res) => {
   const r = await brief()
@@ -703,7 +1047,12 @@ app.get('/api/brief', wrap(async (req, res) => {
 
 app.post('/api/reset', (req, res) => ((db = { ...empty(), push: db.push }), save(), res.json({ ok: true })))
 
-app.use(express.static(fileURLToPath(new URL('./web/dist', import.meta.url))))
+// Demo pharmacy partners, served over the same HTTP contract a real partner would implement.
+app.use('/partner/pharmacy', partnerRouter({ now, stepMinutes: () => +(process.env.ORDER_STEP_MIN || 1) }))
+
+const dist = fileURLToPath(new URL('./web/dist', import.meta.url))
+app.use(express.static(dist))
+app.get(['/family', '/intro'], (req, res) => res.sendFile(dist + '/index.html'))
 
 // Self-check for the alert thresholds: `node server.js check`
 if (process.argv[2] === 'check') {
