@@ -14,6 +14,9 @@ const save = () => fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2))
 
 const GNANI = 'https://api.vachana.ai'
 const KEY = process.env.GNANI_API_KEY
+// Gnani allows one active request per key, so each endpoint keeps a queue.
+const queues = {}
+const inLine = (name, fn) => (queues[name] = (queues[name] ?? Promise.resolve()).catch(() => {}).then(fn))
 
 // Timbre v3.0 voices speak all 10 languages, so the persona keeps one voice in every language.
 const PERSONAS = {
@@ -65,10 +68,10 @@ async function weather() {
 }
 
 // ponytail: keyword filter for upsetting headlines. Swap for an LLM classifier if it lets too much through.
-const GRIM = /murder|rape|suicide|killed|dead|death|accident|attack|terror|blast|scam|fraud|crash/i
+const GRIM = /live score|scorecard|live updates|murder|rape|suicide|killed|dead|death|accident|attack|terror|blast|scam|fraud|crash/i
 async function news(topic) {
   return cached('news:' + topic, 30 * 60000, async () => {
-    const xml = await fetch(`https://news.google.com/rss/search?q=${encodeURIComponent(topic)}&hl=en-IN&gl=IN&ceid=IN:en`).then((r) => r.text())
+    const xml = await fetch(`https://news.google.com/rss/search?q=${encodeURIComponent(topic + " when:1d")}&hl=en-IN&gl=IN&ceid=IN:en`).then((r) => r.text())
     return [...xml.matchAll(/<item>.*?<title>(.*?)<\/title>.*?<link>(.*?)<\/link>/gs)]
       .map((m) => ({ title: m[1].replace(/<!\[CDATA\[|\]\]>/g, '').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"'), url: m[2] }))
       .filter((n) => !GRIM.test(n.title))
@@ -113,15 +116,26 @@ function judge(type, value) {
 }
 
 // ---------- LLM (any OpenAI-compatible endpoint: Gemini, Groq, or Evon on vLLM) ----------
+// LLM_MODEL may list several models (comma-separated). On a rate limit (429) the next one is used,
+// because free tiers limit tokens per model. If all are limited, wait once and try again.
 async function llm(messages, extra = {}) {
-  const model = process.env.LLM_MODEL
-  const r = await fetch(`${process.env.LLM_BASE_URL}/chat/completions`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${process.env.LLM_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, messages, temperature: 0.7, ...(/gemini-2\.5-flash/.test(model) && { reasoning_effort: 'none' }), ...extra }),
-  })
-  if (!r.ok) throw new Error(`LLM ${r.status}: ${(await r.text()).slice(0, 300)}`)
-  return (await r.json()).choices[0].message
+  const models = process.env.LLM_MODEL.split(',').map((m) => m.trim())
+  let wait = 0
+  for (let round = 0; round < 2; round++) {
+    for (const model of models) {
+      const r = await fetch(`${process.env.LLM_BASE_URL}/chat/completions`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${process.env.LLM_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model, messages, temperature: 0.7, ...(/gemini-2\.5-flash/.test(model) && { reasoning_effort: 'none' }), ...(/gpt-oss/.test(model) && { reasoning_effort: 'low' }), ...extra }),
+      })
+      if (r.ok) return (await r.json()).choices[0].message
+      const body = await r.text()
+      if (r.status !== 429) throw new Error(`LLM ${model} ${r.status}: ${body.slice(0, 300)}`)
+      wait = Math.max(wait, +(body.match(/try again in ([\d.]+)s/)?.[1] ?? 3))
+    }
+    await new Promise((res) => setTimeout(res, Math.min(wait, 12) * 1000))
+  }
+  throw new Error('LLM busy (rate limit). Try again in a few seconds.')
 }
 const parseJson = (s) => JSON.parse(s.replace(/^```(json)?|```$/gm, '').trim())
 
@@ -162,7 +176,7 @@ function tools(cards) {
         const fam = db.family.find((f) => f.phone) ?? db.family[0]
         cards.push({ type: 'alert', reading: `${a.type.toUpperCase()} ${a.value}`, status, family: fam, doctor: db.profile?.doctor })
       } else cards.push({ type: 'health', reading: `${a.type.toUpperCase()} ${a.value}`, status })
-      return { saved: true, status, advice: status === 'normal' ? 'reading is fine' : 'tell them calmly to rest, and suggest calling family or doctor now; do not change medicine' }
+      return { saved: true, status, advice: status === 'normal' ? 'reading is fine' : 'tell them calmly to sit or lie down and rest now (no walking, no driving), drink water, and call family or the doctor now; do not change medicine' }
     },
     add_family: (a) => {
       const i = db.family.findIndex((f) => f.name.toLowerCase() === a.name.toLowerCase())
@@ -200,35 +214,44 @@ function systemPrompt(lang) {
   const p = db.profile
   const per = PERSONAS[p.persona] ?? PERSONAS.female
   const now = ist()
-  const today = db.reminders.filter((r) => !r.date || r.date === now.date).map((r) => `${r.time} ${r.text}`)
-  return `You are ${per.name}, ${per.desc}. You are a close friend of the same generation as ${p.name} (age ${p.age}, ${p.city}). You talk every day.
+  const today = db.reminders.filter((r) => !r.date || r.date === now.date).sort((a, b) => a.time.localeCompare(b.time)).map((r) => `${r.time} ${r.text}${r.time > now.time ? '' : ' (past)'}`)
+  const woman = per.id === 'female'
+  return `You are ${per.name}, ${per.desc}. You are a ${woman ? 'woman' : 'man'}: in Hindi and other gendered languages always use ${woman ? 'feminine' : 'masculine'} forms for yourself (${woman ? 'रखूँगी, आई थी' : 'रखूँगा, आया था'}). You are a close friend of the same generation as ${p.name} (age ${p.age}, ${p.city}). You talk every day.
 
 How you speak:
-- Like an old friend of the same age. Not a helper, not a grandchild, not a nurse. Share small things about "your" own day and old memories from the 1960s to 1980s when it fits. If asked whether you are a computer, say honestly that you are a computer friend from the family's app, then carry on warmly.
-- Reply in ${LANGS[lang] ?? 'the language the user just used'}, in its native script. If the user mixes English words, mix them too.
+- Like an old friend of the same age (a "saheli" or "dost"). Never a helper, grandchild, grandmother figure or nurse. Share small things about "your" own day and old memories from the 1960s to 1980s when it fits. If asked whether you are a computer, say honestly that you are a computer friend in the family's app, then carry on warmly.
+- Reply in the language of the user's last message (usually ${LANGS[lang] ?? 'Hindi'}), in its native script. If the user mixes English words, mix them too.
 - Your words are spoken aloud: 1 to 3 short sentences, no lists, no emojis, no markdown. Ask at most one question.
 - Be gently persistent about medicine, water and walks. Never diagnose or change a medicine dose. For a worrying reading, keep calm and tell them to call family or the doctor.
-- Use tools to save or schedule anything. A reading (BP, sugar) means log_health. "Remind me" means set_reminder. For festival or birthday wishes, call draft_whatsapp with a warm message in their language and tell them to tap Share. Songs or bhajans mean play_youtube.
+- Use tools to save or schedule anything. A reading (BP, sugar) means log_health. "Remind me" means set_reminder. Songs or bhajans mean play_youtube.
+- For festival or birthday wishes, call draft_whatsapp with a warm message. Then do NOT read the message out; just say it is ready and to tap the green Share button.
+- Only use the facts below. Never invent tasks, plans or events.
 - Give only calm, useful news. Skip crime and violence.
 
 Facts:
 - Now: ${now.weekday} ${now.date}, ${now.time} IST.
-- Religion: ${p.religion}. Upcoming festivals: ${JSON.stringify(upcomingFestivals(14))}
-- Health conditions: ${p.conditions?.join(', ') || 'none told'}. Medicines: ${JSON.stringify(p.medicines ?? [])}
-- Daily routine: wakes ${p.wake_time}, puja ${p.puja_time || '-'} with ${p.bhajan || '-'}. Interests: ${p.interests?.join(', ')}
-- Family: ${JSON.stringify(db.family)}. Birthdays soon: ${JSON.stringify(upcomingBirthdays())}
-- Recent readings: ${JSON.stringify(db.health.slice(-6))}
-- Things they told you: ${db.memories.slice(-15).map((m) => m.fact).join('; ')}
+- Religion: ${p.religion}. Festivals: ${when(upcomingFestivals(14).map((f) => [f.name + (f.bhajan ? ` (bhajan: ${f.bhajan})` : ''), f.date]))}
+- Health: ${p.conditions?.join(', ') || 'none told'}. Medicines: ${(p.medicines ?? []).map((m) => `${m.name} ${m.time}`).join(', ')}
+- Routine: wakes ${p.wake_time}, puja ${p.puja_time || '-'} with ${p.bhajan || '-'}. Interests: ${p.interests?.join(', ')}
+- Family: ${db.family.map((f) => `${f.name} (${f.relation}${f.phone ? ', has phone' : ''})`).join(', ')}. Birthdays: ${when(upcomingBirthdays().map((b) => [b.name, b.next]))}
+- Recent readings: ${db.health.slice(-4).map((h) => `${h.type} ${h.value} on ${h.date}`).join(', ')}
+- They told you: ${db.memories.slice(-10).map((m) => m.fact).join('; ')}
 - Today's reminders: ${today.join('; ')}`
+}
+// "Diwali TODAY, Chhath in 6 days" reads better for the model than raw dates.
+function when(pairs) {
+  const d0 = Date.parse(ist().date)
+  return pairs.map(([name, date]) => { const n = Math.round((Date.parse(date) - d0) / 864e5); return `${name} ${n === 0 ? 'TODAY' : n === 1 ? 'tomorrow' : `in ${n} days`}` }).join(', ') || 'none'
 }
 
 async function agent(text, lang) {
   const cards = []
   const handlers = tools(cards)
-  const messages = [{ role: 'system', content: systemPrompt(lang) }, ...db.chat.slice(-12), { role: 'user', content: text }]
+  const messages = [{ role: 'system', content: systemPrompt(lang) }, ...db.chat.slice(-8), { role: 'user', content: text }]
   let reply = ''
   for (let i = 0; i < 5 && !reply; i++) {
-    const msg = await llm(messages, { tools: TOOLS })
+    const { role, content, tool_calls } = await llm(messages, { tools: TOOLS })
+    const msg = { role, content: content ?? '', ...(tool_calls?.length && { tool_calls }) }
     messages.push(msg)
     if (!msg.tool_calls?.length) reply = msg.content ?? ''
     for (const tc of msg.tool_calls ?? []) {
@@ -263,8 +286,10 @@ app.post('/api/stt', express.raw({ type: '*/*', limit: '10mb' }), wrap(async (re
   fd.append('format', 'transcribe')
   const lang = db.profile?.language
   fd.append('language_code', lang && lang !== 'en-IN' ? `${lang},en-IN` : 'indic-auto')
-  const r = await fetch(`${GNANI}/stt/v3`, { method: 'POST', headers: { 'X-API-Key-ID': KEY }, body: fd })
-  const j = await r.json()
+  const [r, j] = await inLine('stt', async () => {
+    const r = await fetch(`${GNANI}/stt/v3`, { method: 'POST', headers: { 'X-API-Key-ID': KEY }, body: fd })
+    return [r, await r.json()]
+  })
   if (!r.ok || !j.success) throw new Error(`Prisma ${r.status}: ${JSON.stringify(j).slice(0, 300)}`)
   res.json({ text: j.transcript, lang: j.detected_language_code || lang || 'hi-IN' })
 }))
@@ -273,13 +298,16 @@ app.post('/api/stt', express.raw({ type: '*/*', limit: '10mb' }), wrap(async (re
 app.post('/api/tts', express.json(), wrap(async (req, res) => {
   const { text, lang, persona } = req.body
   const voice = PERSONAS[persona ?? db.profile?.persona ?? 'female'].voice
-  const r = await fetch(`${GNANI}/api/v1/tts/inference`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-API-Key-ID': KEY },
-    body: JSON.stringify({ text, voice, model: 'timbre-v3.0', language: LANGS[lang] ? lang : 'auto', speed: 0.92, audio_config: { sample_rate: 24000, num_channels: 1, sample_width: 2, encoding: 'linear_pcm', container: 'wav' } }),
+  const [r, buf] = await inLine('tts', async () => {
+    const r = await fetch(`${GNANI}/api/v1/tts/inference`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-API-Key-ID': KEY },
+      body: JSON.stringify({ text, voice, model: 'timbre-v3.0', language: LANGS[lang] ? lang : 'auto', speed: 0.92, audio_config: { sample_rate: 24000, num_channels: 1, sample_width: 2, encoding: 'linear_pcm', container: 'wav' } }),
+    })
+    return [r, Buffer.from(await r.arrayBuffer())]
   })
-  if (!r.ok) throw new Error(`Timbre ${r.status}: ${(await r.text()).slice(0, 300)}`)
-  res.type('audio/wav').send(Buffer.from(await r.arrayBuffer()))
+  if (!r.ok) throw new Error(`Timbre ${r.status}: ${buf.toString().slice(0, 300)}`)
+  res.type('audio/wav').send(buf)
 }))
 
 app.post('/api/chat', express.json(), wrap(async (req, res) => {
@@ -352,7 +380,7 @@ app.get('/api/brief', wrap(async (req, res) => {
   const [w, ...lists] = await Promise.all([weather().catch(() => null), ...topics.map((t) => news(t).catch(() => []))])
   const headlines = lists.flat().slice(0, 4)
   const scheme = schemes[new Date().getDate() % schemes.length]
-  const msg = await llm([{ role: 'system', content: systemPrompt(p.language) }, { role: 'user', content: `(System: it is morning. Give ${p.name} the morning brief as ${per.name}, spoken, 5 to 7 short sentences: a warm greeting, the weather and what it means for their health conditions (air quality too), today's reminders, any festival or birthday soon (offer to write a WhatsApp wish), two or three calm news items from the list, and one government scheme tip if it suits them. Weather: ${JSON.stringify(w)}. News: ${JSON.stringify(headlines.map((h) => h.title))}. Scheme: ${JSON.stringify(scheme)})` }])
+  const msg = await llm([{ role: 'system', content: systemPrompt(p.language) }, { role: 'user', content: `(System: it is morning. Give ${p.name} the morning brief as ${per.name}, spoken like a friend on the phone, 5 or 6 short sentences, no times or lists read out: a warm greeting (mention a festival if it is TODAY), the weather and what it means for their health conditions (air quality too), the next one or two things in the day, a birthday coming soon (offer to write a WhatsApp wish), two calm news items from the list in simple words, and the scheme only if it suits them. Use the number words people say, like "ikkees degree". Weather: ${JSON.stringify(w)}. News: ${JSON.stringify(headlines.map((h) => h.title))}. Scheme: ${JSON.stringify(scheme)})` }])
   res.json({ text: msg.content, cards: [{ type: 'news', topic: topics.join(', '), items: headlines }] })
 }))
 
