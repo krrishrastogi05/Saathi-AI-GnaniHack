@@ -104,9 +104,9 @@ textarea, input { font: inherit; color: inherit; }
 .avatar-letter { display: grid; place-items: center; width: 100%; height: 100%; font-size: 2em; font-weight: 800; color: #fff; background: linear-gradient(135deg, #7652e0, #2f5fd8); }
 .avatar.listening { box-shadow: 0 0 0 3px var(--cyan), 0 10px 24px -12px rgba(47, 47, 160, 0.7); }
 .avatar.speaking { box-shadow: 0 0 0 3px var(--brand-2), 0 10px 24px -12px rgba(47, 47, 160, 0.7); }
-.avatar.speaking img { animation: nod 0.5s ease-in-out infinite alternate; }
+.avatar { background: #f6f5fd; }
+.avatar.speaking img { transform-origin: 50% 0; transform: scale(1.35); } /* the speaking art is framed wider than the stills */
 .avatar.thinking img { animation: breathe 1.4s ease-in-out infinite; }
-@keyframes nod { from { transform: translateY(0) rotate(0); } to { transform: translateY(-3%) rotate(-1.5deg); } }
 .onb-hero { display: flex; align-items: center; gap: 16px; }
 .onb-hero b { font-size: 1.25em; }
 
