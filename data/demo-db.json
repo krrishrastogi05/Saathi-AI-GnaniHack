@@ -1,25 +1,279 @@
 {
-  "profile": { "name": "Shanti Devi", "age": 72, "city": "Lucknow", "religion": "hindu", "conditions": ["high blood pressure", "diabetes", "knee pain"], "medicines": [{"name": "Amlodipine", "time": "08:00"}, {"name": "Metformin", "time": "21:00"}], "wake_time": "05:30", "puja_time": "06:30", "bhajan": "Hanuman Chalisa", "interests": ["cricket", "spirituality", "health tips"], "language": "hi-IN", "persona": "female", "lat": 26.85, "lon": 80.95, "doctor": {"name": "Dr. Mehra Clinic", "phone": "+910000000099"} },
+  "profile": {
+    "name": "Shanti Devi",
+    "age": 72,
+    "city": "Lucknow",
+    "religion": "hindu",
+    "conditions": [
+      "high blood pressure",
+      "diabetes",
+      "knee pain"
+    ],
+    "medicines": [
+      {
+        "name": "Amlodipine",
+        "time": "08:00"
+      },
+      {
+        "name": "Metformin",
+        "time": "21:00"
+      }
+    ],
+    "wake_time": "05:30",
+    "puja_time": "06:30",
+    "bhajan": "Hanuman Chalisa",
+    "interests": [
+      "cricket",
+      "spirituality",
+      "health tips"
+    ],
+    "language": "hi-IN",
+    "persona": "female",
+    "lat": 26.85,
+    "lon": 80.95,
+    "doctor": {
+      "name": "Dr. Mehra Clinic",
+      "phone": "+910000000099"
+    }
+  },
   "family": [
-    {"name": "Rahul", "relation": "son", "phone": "+910000000001", "birthday": "11-12"},
-    {"name": "Anya", "relation": "granddaughter", "phone": null, "birthday": "11-14"},
-    {"name": "Priya", "relation": "daughter", "phone": "+910000000002", "birthday": "01-05"}
+    {
+      "name": "Rahul",
+      "relation": "son",
+      "phone": "+910000000001",
+      "birthday": "11-12"
+    },
+    {
+      "name": "Anya",
+      "relation": "granddaughter",
+      "phone": null,
+      "birthday": "11-14"
+    },
+    {
+      "name": "Priya",
+      "relation": "daughter",
+      "phone": "+910000000002",
+      "birthday": "01-05"
+    }
   ],
   "health": [
-    {"type": "bp", "value": "138/86", "status": "normal", "at": "2026-11-06T03:40:00Z", "date": "2026-11-06"},
-    {"type": "sugar", "value": "142", "status": "normal", "at": "2026-11-06T03:41:00Z", "date": "2026-11-06"},
-    {"type": "bp", "value": "146/90", "status": "normal", "at": "2026-11-07T03:40:00Z", "date": "2026-11-07"},
-    {"type": "sugar", "value": "168", "status": "normal", "at": "2026-11-07T03:41:00Z", "date": "2026-11-07"},
-    {"type": "bp", "value": "152/94", "status": "normal", "at": "2026-11-08T03:40:00Z", "date": "2026-11-08"},
-    {"type": "sugar", "value": "155", "status": "normal", "at": "2026-11-08T03:41:00Z", "date": "2026-11-08"}
+    {
+      "type": "bp",
+      "value": "138/86",
+      "status": "normal",
+      "at": "2026-11-06T03:40:00Z",
+      "date": "2026-11-06"
+    },
+    {
+      "type": "sugar",
+      "value": "142",
+      "status": "normal",
+      "at": "2026-11-06T03:41:00Z",
+      "date": "2026-11-06"
+    },
+    {
+      "type": "bp",
+      "value": "146/90",
+      "status": "normal",
+      "at": "2026-11-07T03:40:00Z",
+      "date": "2026-11-07"
+    },
+    {
+      "type": "sugar",
+      "value": "168",
+      "status": "normal",
+      "at": "2026-11-07T03:41:00Z",
+      "date": "2026-11-07"
+    },
+    {
+      "type": "bp",
+      "value": "152/94",
+      "status": "normal",
+      "at": "2026-11-08T03:40:00Z",
+      "date": "2026-11-08"
+    },
+    {
+      "type": "sugar",
+      "value": "155",
+      "status": "normal",
+      "at": "2026-11-08T03:41:00Z",
+      "date": "2026-11-08"
+    }
   ],
-  "reminders": [
-    {"id": "r1", "text": "शांति जी, उठ जाइए! सुबह की चाय मेरे साथ?", "time": "05:30", "kind": "wake", "date": null, "lastFired": null, "done": []},
-    {"id": "r2", "text": "पूजा का समय हो गया, हनुमान चालीसा लगा दूँ?", "time": "06:30", "kind": "puja", "date": null, "lastFired": null, "done": []},
-    {"id": "r3", "text": "आठ बज गए, Amlodipine की गोली ले ली?", "time": "08:00", "kind": "medicine", "date": null, "lastFired": null, "done": []},
-    {"id": "r4", "text": "आज का BP और शुगर बता दीजिए", "time": "09:00", "kind": "health", "date": null, "lastFired": null, "done": []},
-    {"id": "r5", "text": "रात की Metformin का समय हो गया", "time": "21:00", "kind": "medicine", "date": null, "lastFired": null, "done": []}
+  "memories": [
+    {
+      "fact": "Grows tulsi and roses on the balcony",
+      "date": "2026-11-08"
+    }
   ],
-  "memories": [{"fact": "Grows tulsi and roses on the balcony", "date": "2026-11-08"}],
-  "chat": []
+  "chat": [],
+  "jobs": [
+    {
+      "id": "j1",
+      "title": "शांति जी, उठ जाइए! सुबह की चाय मेरे साथ?",
+      "kind": "wake",
+      "schedule": {
+        "type": "daily",
+        "time": "05:30"
+      },
+      "action": "say",
+      "say": "शांति जी, उठ जाइए! सुबह की चाय मेरे साथ?",
+      "task": null,
+      "escalateAfterMin": null,
+      "escalateTo": null,
+      "active": true,
+      "created": 0
+    },
+    {
+      "id": "j2",
+      "title": "पूजा का समय – हनुमान चालीसा",
+      "kind": "puja",
+      "schedule": {
+        "type": "daily",
+        "time": "06:30"
+      },
+      "action": "agent",
+      "say": "पूजा का समय – हनुमान चालीसा",
+      "task": "Wish her for puja and play Hanuman Chalisa",
+      "escalateAfterMin": null,
+      "escalateTo": null,
+      "active": true,
+      "created": 0
+    },
+    {
+      "id": "j3",
+      "title": "सुबह की बातें",
+      "kind": "brief",
+      "schedule": {
+        "type": "daily",
+        "time": "06:00"
+      },
+      "action": "brief",
+      "say": "सुबह की बातें",
+      "task": null,
+      "escalateAfterMin": null,
+      "escalateTo": null,
+      "active": true,
+      "created": 0
+    },
+    {
+      "id": "j4",
+      "title": "Amlodipine की गोली",
+      "kind": "medicine",
+      "schedule": {
+        "type": "daily",
+        "time": "08:00"
+      },
+      "action": "say",
+      "say": "आठ बज गए शांति जी, Amlodipine की गोली ले ली?",
+      "task": null,
+      "escalateAfterMin": 30,
+      "escalateTo": "Rahul",
+      "active": true,
+      "created": 0
+    },
+    {
+      "id": "j5",
+      "title": "आज का BP और शुगर",
+      "kind": "health",
+      "schedule": {
+        "type": "daily",
+        "time": "09:00"
+      },
+      "action": "say",
+      "say": "आज का BP और शुगर बता दीजिए",
+      "task": null,
+      "escalateAfterMin": null,
+      "escalateTo": null,
+      "active": true,
+      "created": 0
+    },
+    {
+      "id": "j6",
+      "title": "पानी पीना",
+      "kind": "water",
+      "schedule": {
+        "type": "interval",
+        "everyMinutes": 120,
+        "from": "10:00",
+        "to": "18:00"
+      },
+      "action": "say",
+      "say": "एक गिलास पानी पी लीजिए",
+      "task": null,
+      "escalateAfterMin": null,
+      "escalateTo": null,
+      "active": true,
+      "created": 0
+    },
+    {
+      "id": "j7",
+      "title": "रात की Metformin",
+      "kind": "medicine",
+      "schedule": {
+        "type": "daily",
+        "time": "21:00"
+      },
+      "action": "say",
+      "say": "रात की Metformin",
+      "task": null,
+      "escalateAfterMin": 30,
+      "escalateTo": "Rahul",
+      "active": true,
+      "created": 0
+    },
+    {
+      "id": "j8",
+      "title": "एकादशी – विष्णु सहस्रनाम",
+      "kind": "festival",
+      "schedule": {
+        "type": "festival",
+        "festival": "ekadashi",
+        "time": "06:15"
+      },
+      "action": "agent",
+      "say": "एकादशी – विष्णु सहस्रनाम",
+      "task": "Wish her a happy Ekadashi and play Vishnu Sahasranamam",
+      "escalateAfterMin": null,
+      "escalateTo": null,
+      "active": true,
+      "created": 0
+    },
+    {
+      "id": "j9",
+      "title": "जन्मदिन की तैयारी",
+      "kind": "birthday",
+      "schedule": {
+        "type": "birthday",
+        "daysBefore": 1,
+        "time": "19:00"
+      },
+      "action": "agent",
+      "say": "जन्मदिन की तैयारी",
+      "task": "Remind her whose birthday is tomorrow and draft a WhatsApp wish for them",
+      "escalateAfterMin": null,
+      "escalateTo": null,
+      "active": true,
+      "created": 0
+    },
+    {
+      "id": "j10",
+      "title": "बिजली का बिल",
+      "kind": "bill",
+      "schedule": {
+        "type": "monthly",
+        "dayOfMonth": 5,
+        "time": "11:00"
+      },
+      "action": "say",
+      "say": "आज बिजली का बिल भरने का दिन है",
+      "task": null,
+      "escalateAfterMin": null,
+      "escalateTo": null,
+      "active": true,
+      "created": 0
+    }
+  ],
+  "events": [],
+  "push": []
 }
