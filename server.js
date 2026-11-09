@@ -38,6 +38,29 @@ const ist = () => {
   return { ms: n, date, time: timeOf(n), weekday: new Date(date + 'T00:00:00Z').toLocaleDateString('en-IN', { weekday: 'long', timeZone: 'UTC' }) }
 }
 
+// ---------- network ----------
+// Retry short network drops and gateway errors (seen: DNS ENOTFOUND on a flaky line, HTML 502 pages).
+async function fetchRetry(url, init = {}, tries = 3) {
+  for (let i = 1; ; i++) {
+    try {
+      const r = await fetch(url, { ...init, signal: AbortSignal.timeout(30000) })
+      if (r.status < 500 || i >= tries) return r
+    } catch (e) {
+      if (i >= tries) throw new Error(`network: cannot reach ${new URL(url).host} (${e.cause?.code ?? e.name})`)
+    }
+    await new Promise((res) => setTimeout(res, 500 * 3 ** (i - 1)))
+  }
+}
+// A gateway may answer with an HTML page instead of JSON.
+const safeJson = async (r) => {
+  const text = await r.text()
+  try {
+    return JSON.parse(text)
+  } catch {
+    return { success: false, status: r.status, body: text.slice(0, 120) }
+  }
+}
+
 // ---------- external data ----------
 const cache = new Map()
 async function cached(key, ms, fn) {
@@ -55,8 +78,8 @@ async function weather() {
   return cached('weather', 15 * 60000, async () => {
     const q = `latitude=${p.lat}&longitude=${p.lon}`
     const [w, a] = await Promise.all([
-      fetch(`https://api.open-meteo.com/v1/forecast?${q}&current=temperature_2m,relative_humidity_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FKolkata&forecast_days=1`).then((r) => r.json()),
-      fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?${q}&current=us_aqi,pm2_5`).then((r) => r.json()).catch(() => null),
+      fetchRetry(`https://api.open-meteo.com/v1/forecast?${q}&current=temperature_2m,relative_humidity_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FKolkata&forecast_days=1`).then((r) => r.json()),
+      fetchRetry(`https://air-quality-api.open-meteo.com/v1/air-quality?${q}&current=us_aqi,pm2_5`).then((r) => r.json()).catch(() => null),
     ])
     return {
       city: p.city,
@@ -75,7 +98,7 @@ async function weather() {
 const GRIM = /live score|scorecard|live updates|murder|rape|suicide|killed|dead|death|accident|attack|terror|blast|scam|fraud|crash/i
 async function news(topic) {
   return cached('news:' + topic, 30 * 60000, async () => {
-    const xml = await fetch(`https://news.google.com/rss/search?q=${encodeURIComponent(topic + ' when:1d')}&hl=en-IN&gl=IN&ceid=IN:en`).then((r) => r.text())
+    const xml = await fetchRetry(`https://news.google.com/rss/search?q=${encodeURIComponent(topic + ' when:1d')}&hl=en-IN&gl=IN&ceid=IN:en`).then((r) => r.text())
     return [...xml.matchAll(/<item>.*?<title>(.*?)<\/title>.*?<link>(.*?)<\/link>/gs)]
       .map((m) => ({ title: m[1].replace(/<!\[CDATA\[|\]\]>/g, '').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"'), url: m[2] }))
       .filter((n) => !GRIM.test(n.title))
@@ -136,7 +159,7 @@ async function llm(messages, extra = {}) {
   let wait = 0
   for (let round = 0; round < 2; round++) {
     for (const { url, key, model } of CHAIN) {
-      const r = await fetch(`${url}/chat/completions`, {
+      const r = await fetchRetry(`${url}/chat/completions`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ model, messages, temperature: 0.6, ...(/gemini-2\.5-flash/.test(model) && { reasoning_effort: 'none' }), ...(/gpt-oss/.test(model) && { reasoning_effort: 'low' }), ...extra }),
@@ -350,6 +373,7 @@ function facts() {
 
 const RULES = {
   chat: `- Use tools for anything to save, schedule, change or cancel. You can schedule ANY job: one-time, daily, weekly, monthly, yearly, every N minutes, on Ekadashi or a festival, or days before a birthday. Use action "agent" when the job needs you to act at that time (play a bhajan, read news, draft wishes). To change or cancel, call list_jobs first to get the id.
+- Pick the schedule type from the words: "kal" / "tomorrow" / "parson" / a date = once (compute the YYYY-MM-DD from Now); "roz" / "har din" / "daily" = daily; "har Somvaar" = weekly; "har mahine" = monthly; "har saal" = yearly; "har 2 ghante" = interval. If it is unclear whether it repeats, use once.
 - A reading (BP, sugar) means log_health. "Done", "took it" means mark_done. "Later" means snooze.
 - For wishes call draft_whatsapp, then do NOT read the message out; just say it is ready to share.
 - Give only calm, useful news.`,
@@ -395,7 +419,7 @@ About them: ${JSON.stringify({ medicines: p.medicines, bhajan: p.bhajan, conditi
     const job = addJob({ ...j, title: words[j.key]?.title || j.key, say: words[j.key]?.say, routine: true })
     cards.push({ type: 'job', ...describeJob(job) })
   }
-  const geo = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(p.city || 'Delhi')}&count=1&countryCode=IN`).then((r) => r.json()).catch(() => ({}))
+  const geo = await fetchRetry(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(p.city || 'Delhi')}&count=1&countryCode=IN`).then((r) => r.json()).catch(() => ({}))
   const g = geo.results?.[0] ?? { latitude: 28.61, longitude: 77.21 }
   Object.assign(p, { onboarding: false, lat: g.latitude, lon: g.longitude })
   cache.delete('weather')
@@ -563,8 +587,8 @@ app.post('/api/stt', express.raw({ type: '*/*', limit: '10mb' }), wrap(async (re
   const lang = db.profile?.language
   fd.append('language_code', lang && lang !== 'en-IN' ? `${lang},en-IN` : 'indic-auto')
   const [r, j] = await inLine('stt', async () => {
-    const r = await fetch(`${GNANI}/stt/v3`, { method: 'POST', headers: { 'X-API-Key-ID': KEY }, body: fd })
-    return [r, await r.json()]
+    const r = await fetchRetry(`${GNANI}/stt/v3`, { method: 'POST', headers: { 'X-API-Key-ID': KEY }, body: fd })
+    return [r, await safeJson(r)]
   })
   if (!r.ok || !j.success) throw new Error(`Prisma ${r.status}: ${JSON.stringify(j).slice(0, 300)}`)
   res.json({ text: j.transcript, lang: j.detected_language_code || lang || 'hi-IN' })
@@ -575,7 +599,7 @@ app.post('/api/tts', express.json(), wrap(async (req, res) => {
   const { text, lang, persona } = req.body
   const voice = PERSONAS[persona ?? db.profile?.persona ?? 'female'].voice
   const [r, buf] = await inLine('tts', async () => {
-    const r = await fetch(`${GNANI}/api/v1/tts/inference`, {
+    const r = await fetchRetry(`${GNANI}/api/v1/tts/inference`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-API-Key-ID': KEY },
       body: JSON.stringify({ text, voice, model: 'timbre-v3.0', language: LANGS[lang] ? lang : 'auto', speed: 0.92, audio_config: { sample_rate: 24000, num_channels: 1, sample_width: 2, encoding: 'linear_pcm', container: 'wav' } }),

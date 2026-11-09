@@ -276,3 +276,9 @@ textarea, input { font: inherit; color: inherit; }
 .job-actions { display: flex; gap: 4px; }
 .mini { width: 40px; height: 40px; border-radius: 12px; background: var(--paper-2); font-size: 0.9em; }
 .ring-title { font-size: 1.1em; }
+
+/* ---------- friendly error toast ---------- */
+.toast {
+  position: absolute; left: 16px; right: 16px; bottom: 170px; z-index: 6; padding: 14px 18px; border-radius: 18px;
+  background: var(--ink); color: var(--paper); font-weight: 500; box-shadow: 0 16px 40px -16px rgba(34, 27, 75, 0.6); cursor: pointer;
+}
