@@ -1,1 +1,1 @@
-{ "name": "Saathi", "short_name": "Saathi", "start_url": "/", "display": "standalone", "background_color": "#FBF4E8", "theme_color": "#FBF4E8", "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }] }
+{ "name": "Saathi", "short_name": "Saathi", "start_url": "/", "display": "standalone", "background_color": "#F7F5FE", "theme_color": "#F7F5FE", "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }] }

@@ -1,6 +1,7 @@
 import { StrictMode, useEffect, useRef, useState, useCallback } from 'react'
 import { createRoot } from 'react-dom/client'
 import { record, speak, stopSpeaking } from './audio.js'
+import Avatar from './Avatar.jsx'
 import './styles.css'
 
 // ---------- api + i18n ----------
@@ -170,14 +171,6 @@ function useRecorder(onBlob) {
   return { phase, setPhase, level, toggle }
 }
 
-function Avatar({ persona, phase }) {
-  return (
-    <div className={`avatar ${persona?.id} ${phase ?? ''}`}>
-      <span>{persona?.name?.[0] ?? '·'}</span>
-      <i className="spark" />
-    </div>
-  )
-}
 
 // ---------- first launch: language + friend ----------
 function Welcome({ state, onStarted }) {
@@ -409,6 +402,13 @@ function Home({ state, reload }) {
       <main className="scroll">
         {onboarding && (
           <>
+            <div className="onb-hero">
+              <Avatar persona={state.persona} phase={rec.phase} size={92} />
+              <div>
+                <b>{state.persona.name}</b>
+                <small>{phaseLabel ?? t('tapSpeak')}</small>
+              </div>
+            </div>
             <div className="checks">
               {checks.map(([k, ok]) => <span key={k} className={`check ${ok ? 'on' : ''}`}>{ok ? '✓' : '○'} {t(k)}</span>)}
             </div>
@@ -499,7 +499,7 @@ function Home({ state, reload }) {
             <p className="hint">🎙️ {t('healthHint')}</p>
             <div className="metrics">
               <div className="metric"><small>BP</small><b>{bp.at(-1)?.value ?? '—'}</b><Spark values={bp.map((h) => parseInt(h.value))} color="var(--vermilion)" /></div>
-              <div className="metric"><small>Sugar</small><b>{sugar.at(-1)?.value ?? '—'}</b><Spark values={sugar.map((h) => parseInt(h.value))} color="var(--marigold)" /></div>
+              <div className="metric"><small>Sugar</small><b>{sugar.at(-1)?.value ?? '—'}</b><Spark values={sugar.map((h) => parseInt(h.value))} color="var(--brand)" /></div>
             </div>
             <ol className="readings">
               {state.health.length === 0 && <li className="empty">{t('noReadings')}</li>}
