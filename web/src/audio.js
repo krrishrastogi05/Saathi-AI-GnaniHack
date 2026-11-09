@@ -53,22 +53,29 @@ function wav(chunks, rate) {
 }
 
 let current
+let turn = 0
 export function stopSpeaking() {
+  turn++
   current?.pause()
   speechSynthesis.cancel()
 }
 
 // Speak with Gnani Timbre; fall back to the browser voice so the demo never goes silent.
+// A newer speak() or stopSpeaking() makes an older one drop its audio.
 export async function speak(text, lang, persona) {
   stopSpeaking()
+  const mine = turn
   if (!text) return
   try {
     const r = await fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, lang, persona }) })
     if (!r.ok) throw new Error(await r.text())
-    const audio = (current = new Audio(URL.createObjectURL(await r.blob())))
+    const blob = await r.blob()
+    if (mine !== turn) return
+    const audio = (current = new Audio(URL.createObjectURL(blob)))
     await audio.play()
     await new Promise((res) => (audio.onended = audio.onpause = res))
   } catch (e) {
+    if (mine !== turn) return
     console.warn('Timbre failed, using browser voice', e)
     const u = new SpeechSynthesisUtterance(text)
     u.lang = lang || 'hi-IN'

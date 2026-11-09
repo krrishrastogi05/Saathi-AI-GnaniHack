@@ -499,7 +499,7 @@ function Home({ state, reload }) {
         {typing ? (
           <form className="typebar" onSubmit={(e) => (e.preventDefault(), sendText())}>
             <input autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder={t('typeHere')} />
-            <button className="primary">{t('send')}</button>
+            <button className="primary" aria-label={t('send')}>➤</button>
             <button type="button" className="ghost" onClick={() => setTyping(false)}>✕</button>
           </form>
         ) : (
