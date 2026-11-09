@@ -77,7 +77,7 @@ export async function speak(text, lang, persona) {
   } catch (e) {
     if (mine !== turn) return
     console.warn('Timbre failed, using browser voice', e)
-    const u = new SpeechSynthesisUtterance(text)
+    const u = new SpeechSynthesisUtterance(text.replace(/<[a-z ]+>\s*/g, ''))
     u.lang = lang || 'hi-IN'
     u.rate = 0.9
     speechSynthesis.speak(u)

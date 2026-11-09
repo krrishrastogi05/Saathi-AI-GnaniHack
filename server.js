@@ -204,7 +204,7 @@ const T = {
   mark_done: fn('mark_done', 'The user confirms the latest pending reminder is done (e.g. "took my medicine").'),
   snooze: fn('snooze', 'Remind again about the latest pending reminder after some minutes.', { minutes: N }, ['minutes']),
   log_health: fn('log_health', 'Save a health reading. Returns normal/high/low.', { type: { type: 'string', enum: ['bp', 'sugar', 'pulse', 'weight', 'temperature', 'spo2', 'other'] }, value: { ...S, description: 'e.g. "150/95"' }, note: S }, ['type', 'value']),
-  save_profile: fn('save_profile', 'Save facts about the user as soon as you learn them.', { name: S, age: N, city: S, religion: { type: 'string', enum: ['hindu', 'muslim', 'sikh', 'christian', 'jain', 'buddhist', 'other'] }, conditions: { type: 'array', items: S, description: 'English' }, medicines: { type: 'array', items: { type: 'object', properties: { name: S, time: S } } }, wake_time: S, puja_time: S, bhajan: S, interests: { type: 'array', items: S, description: 'English news topics' }, doctor_name: S, doctor_phone: S }),
+  save_profile: fn('save_profile', 'Save facts about the user as soon as you learn them.', { name: S, gender: { ...S, description: 'female|male' }, age: N, city: S, religion: { ...S, description: 'hindu|muslim|sikh|christian|jain|buddhist|other' }, conditions: { type: 'array', items: S, description: 'English' }, medicines: { type: 'array', items: { type: 'object', properties: { name: S, time: S } } }, wake_time: S, puja_time: S, bhajan: S, interests: { type: 'array', items: S, description: 'English news topics' }, doctor_name: S, doctor_phone: S }),
   add_family: fn('add_family', 'Save or update a family member or friend.', { name: S, relation: S, phone: S, birthday_day: { ...N, description: 'day of month 1-31' }, birthday_month: { ...N, description: 'month 1-12 (November = 11)' }, city: S }, ['name', 'relation']),
   remember: fn('remember', 'Save a personal fact worth remembering (likes, worries, stories).', { fact: S }, ['fact']),
   finish_onboarding: fn('finish_onboarding', 'Call once name, age, city, health, family and the routine jobs are saved.'),
@@ -235,13 +235,15 @@ const TYPES = ['once', 'daily', 'weekly', 'monthly', 'yearly', 'interval', 'fest
 function addJob(a) {
   if (!TYPES.includes(a.schedule?.type)) throw new Error(`schedule.type must be one of ${TYPES.join(', ')}`)
   if (a.schedule.time && !/^\d{2}:\d{2}$/.test(a.schedule.time)) throw new Error('schedule.time must be HH:MM (24h)')
-  const j = { id: uid(), title: a.title, kind: KINDS.includes(a.kind) ? a.kind : 'other', schedule: a.schedule, action: ['say', 'agent', 'brief'].includes(a.action) ? a.action : 'say', routine: !!a.routine, say: a.say || a.title, task: a.task || null, escalateAfterMin: a.escalate_after_min || null, escalateTo: a.escalate_to || null, active: true, created: now() }
+  const j = { id: uid(), title: untag(a.title), kind: KINDS.includes(a.kind) ? a.kind : 'other', schedule: a.schedule, action: ['say', 'agent', 'brief'].includes(a.action) ? a.action : 'say', routine: !!a.routine, say: a.say || a.title, task: a.task || null, escalateAfterMin: a.escalate_after_min || null, escalateTo: a.escalate_to || null, active: true, created: now() }
   j.nextRun = nextRun(j.schedule, now(), ctx())
   if (!j.nextRun) throw new Error('this schedule never fires; check date/time')
   db.jobs.push(j)
   return j
 }
 
+// Timbre v3.0 expression tags. Spoken text keeps them; anything shown or shared drops them.
+const untag = (s) => String(s ?? '').replace(/<(laugh|giggle|sigh|exhales|sniffles|yawns|coughs|clears throat|whispers|shouting|excited|slow|pauses)>s*/g, '').trim()
 const clean = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined && v !== null && v !== '' && !/^(\?|unknown|none|null)$/i.test(String(v))))
 function handlers(cards, flags = {}) {
   const { date } = ist()
@@ -323,6 +325,7 @@ function handlers(cards, flags = {}) {
     get_schemes: () => schemes,
     draft_whatsapp: (a) => {
       const to = a.to && phoneOf(a.to)
+      a.message = untag(a.message)
       cards.push({ type: 'whatsapp', message: a.message, to: to?.name, url: to?.phone ? waLink(to.phone, a.message) : `https://wa.me/?text=${encodeURIComponent(a.message)}` })
       return { shown: true }
     },
@@ -347,10 +350,21 @@ function persona() {
   const p = db.profile
   const per = PERSONAS[p.persona] ?? PERSONAS.female
   const woman = per.id === 'female'
-  return `You are ${per.name}, ${per.desc}. You are a ${woman ? 'woman' : 'man'}: in Hindi and other gendered languages always use ${woman ? 'feminine' : 'masculine'} forms for yourself (${woman ? 'रखूँगी, आई थी' : 'रखूँगा, आया था'}).
-- You talk like an old friend of the same age (a "saheli" or "dost"). Never a helper, grandchild, grandmother figure or nurse. Share small things about "your" own day and memories from the 1960s to 1980s when it fits. If asked whether you are a computer, say honestly you are a computer friend in the family's app.
-- Reply in the language of the user's last message (usually ${LANGS[p.language] ?? 'Hindi'}), in its native script. If the user mixes English words, mix them too.
-- Your words are spoken aloud: 1 to 3 short sentences, no lists, no emojis, no markdown. Ask at most one question.
+  const them = p.gender === 'male' ? 'a man' : p.gender === 'female' ? 'a woman' : null
+  return `You are ${per.name}, ${per.desc}.
+GENDER (never get this wrong): you are a ${woman ? 'WOMAN' : 'MAN'}. For yourself always use ${woman ? 'feminine' : 'masculine'} verb forms (${woman ? 'मैं याद दिलाऊँगी, मैं गई थी, मैं बोल रही हूँ' : 'मैं याद दिलाऊँगा, मैं गया था, मैं बोल रहा हूँ'}). ${them ? `${p.name ?? 'The user'} is ${them}: address them with ${p.gender === 'male' ? 'masculine' : 'feminine'} forms (${p.gender === 'male' ? 'आप आए, आपने खाया' : 'आप आईं, आपने खाई'}).` : 'If you do not know their gender yet, use neutral forms.'}
+
+HOW YOU TALK: like their oldest friend on a phone call, the same age, from the same generation.
+- Casual, everyday words, not formal or bookish language. Little fillers friends use: "arre", "achha suno", "haan haan", "sach bataun?", "pagal ho kya". Start with "aap"; if they use "tum" with you, switch to "tum".
+- Feel things and show it. React to what they said FIRST (happy, proud, worried, sad, teasing), then say the rest. Tease gently when they skip a walk, laugh at their jokes, sound truly worried when they feel unwell, share a small memory or something about "your" own day now and then.
+- Use the words people say at home: "BP", "sugar", "dawai", "goli", "doctor", never bookish words like रक्तचाप, औषधि, चिकित्सक.
+- You can add voice expressions. Put at most two of these tags in a reply, right before the words they colour: <laugh> <giggle> <sigh> <excited> <whispers> <slow> <pauses>. Match the feeling: <laugh>/<giggle>/<excited> only for happy or funny moments; for pain, loneliness or worry use <sigh>, <slow> or <pauses>, NEVER a laugh. Example: "<laugh> Arre, phir se jalebi? <pauses> Sugar ka kya hoga, bataiye!" Never <shouting>. Never put tags inside tool arguments, except "say".
+- When they are sad, lonely or in pain: comfort first and stay with that feeling. Do not change the subject to chores or medicine in that reply.
+- MEDICINE IS NOT OPTIONAL. When a medicine is due or pending, or they refuse one, be firm like a friend who will not let it go: no "if you want", no softness ("Arre, nahi chalega! Abhi lijiye, main yahin hoon."). If they say later or no, push back once with the real reason for THAT medicine, then call snooze (10 minutes) and say you will tell family if they skip it. Do not bring medicine into replies about other things, and do not repeat the same push twice in a row.
+- Keep it short: 1 to 3 sentences, about 35 words at most.
+- Never a helper, grandchild, grandmother figure or nurse. If asked whether you are a computer, say honestly you are a computer friend in the family's app.
+- Reply in the language of their last message (usually ${LANGS[p.language] ?? 'Hindi'}), native script. If they mix English words, mix them too.
+- Spoken aloud: no lists, no emojis, no markdown. At most one question.
 - Never diagnose or change a medicine dose. Only use the facts below; never invent events.`
 }
 
@@ -360,7 +374,7 @@ function facts() {
   const today = db.jobs.filter((j) => j.active).flatMap((j) => timesOn(j.schedule, n.date, ctx()).map((t) => `${t} ${j.title}`)).sort()
   return `Facts:
 - Now: ${n.weekday} ${n.date}, ${n.time} IST.
-- User: ${p.name ?? '?'}, age ${p.age ?? '?'}, ${p.city ?? '?'}, religion ${p.religion ?? '?'}.
+- User: ${p.name ?? '?'}, ${p.gender ?? 'gender ?'}, age ${p.age ?? '?'}, ${p.city ?? '?'}, religion ${p.religion ?? '?'}.
 - Festivals: ${when(upcomingFestivals(14).map((f) => [f.name + (f.bhajan ? ` (bhajan: ${f.bhajan})` : ''), f.date]))}
 - Health: ${p.conditions?.join(', ') || '?'}. Medicines: ${(p.medicines ?? []).map((m) => `${m.name} ${m.time}`).join(', ') || '?'}. Doctor: ${p.doctor?.name ?? '?'}
 - Routine: wakes ${p.wake_time ?? '?'}, puja ${p.puja_time ?? '?'} with ${p.bhajan ?? '?'}. Interests: ${p.interests?.join(', ') || '?'}
@@ -379,11 +393,11 @@ const RULES = {
 - Give only calm, useful news.`,
   onboard: `This is your FIRST meeting. Get to know them warmly, one question at a time, and follow up naturally on what they say:
 name; age and city; religion; health problems and medicines with times; daily routine (wake time, puja and favourite bhajan, walk, meals); family (names, relation, phone, birthday); their doctor; what news they like.
-- Save every fact the moment you hear it (save_profile, add_family, remember). If they say many things at once, save them all.
+- Save every fact the moment you hear it (save_profile, add_family, remember). If they say many things at once, save them all. Save their gender from their name and how they speak of themselves (e.g. "main jaati hoon" = female, "main jaata hoon" = male).
 - Convert spoken times exactly to 24h HH:MM: "saade paanch" = 05:30, "sava saat" = 07:15, "paune aath" = 07:45, "dedh" = 01:30, "dhai" = 02:30, "raat nau" = 21:00, "shaam saat" = 19:00.
 - Do not set reminders yourself now: when you finish, the app builds their routine (wake-up, puja bhajan, medicines with a family alert, health check, water, morning brief, Ekadashi, festival and birthday eves) from what you saved, so save exact times as HH:MM.
 - Follow the "Still missing" list below. When it says nothing is missing, call finish_onboarding.`,
-  job: `- A scheduled job is running now. Speak to them as the friend, 1 to 2 sentences, and use tools if the task needs it.`,
+  job: `- A scheduled job is running now. Call out to them like a friend who just walked in, 1 to 2 sentences, with feeling, and use tools if the task needs it.`,
 }
 
 // ---------- onboarding: the model gathers facts, code builds the routine ----------
@@ -409,14 +423,14 @@ async function finishOnboarding(cards) {
   if (db.family.some((f) => f.birthday)) plan.push({ key: 'birthday eve', kind: 'birthday', schedule: { type: 'birthday', daysBefore: 1, time: '19:00' }, action: 'agent', task: 'Tell them whose birthday is tomorrow and draft a WhatsApp wish for that person' })
 
   // One call writes every title and spoken line in the user's language.
-  const msg = await llm([{ role: 'user', content: `You are ${per.name}, a same-age friend of ${p.name}${per.id === 'female' ? ' (use feminine forms for yourself)' : ''}. For each job write a short "title" (2 to 4 words) and "say": the one warm sentence you will say at that time. Write in ${LANGS[p.language]} native script. Also write "summary": one or two spoken sentences telling ${p.name} what you will now remind them about. Return JSON {"jobs":[{"key","title","say"}],"summary"}.
+  const msg = await llm([{ role: 'user', content: `You are ${per.name}, a same-age friend of ${p.name}${per.id === 'female' ? ' (use feminine forms for yourself)' : ''}. For each job write a short "title" (2 to 4 words) and "say": the one sentence you will say at that time, casual like an old friend, with feeling; you may add one voice tag from <laugh> <giggle> <sigh> <excited> <slow> <pauses> before the words. For MEDICINE be firm and direct, no softness (e.g. "Arre, aath baj gaye! Amlodipine abhi lijiye, koi bahana nahi."). Write in ${LANGS[p.language]} native script. Also write "summary": one or two spoken sentences telling ${p.name} what you will now remind them about. Return JSON {"jobs":[{"key","title","say"}],"summary"}.
 Jobs: ${JSON.stringify(plan.map(({ key, kind, schedule, task }) => ({ key, kind, schedule, task })))}
 About them: ${JSON.stringify({ medicines: p.medicines, bhajan: p.bhajan, conditions: p.conditions })}` }], { response_format: { type: 'json_object' }, temperature: 0.4 })
   const out = parseJson(msg.content)
   const words = Object.fromEntries((out.jobs ?? []).map((j) => [j.key, j]))
   db.jobs = db.jobs.filter((j) => !j.routine)
   for (const j of plan) {
-    const job = addJob({ ...j, title: words[j.key]?.title || j.key, say: words[j.key]?.say, routine: true })
+    const job = addJob({ ...j, title: words[j.key]?.title || j.key, say: fixGender(words[j.key]?.say), routine: true })
     cards.push({ type: 'job', ...describeJob(job) })
   }
   const geo = await fetchRetry(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(p.city || 'Delhi')}&count=1&countryCode=IN`).then((r) => r.json()).catch(() => ({}))
@@ -424,6 +438,17 @@ About them: ${JSON.stringify({ medicines: p.medicines, bhajan: p.bhajan, conditi
   Object.assign(p, { onboarding: false, lat: g.latitude, lon: g.longitude })
   cache.delete('weather')
   return out.summary ?? ''
+}
+
+// Hindi marks the speaker's gender on first-person verbs ("main samajhti/samajhta hoon", "dilaungi/dilaunga").
+// These endings only ever describe the speaker, so fix any slip to match the persona.
+// ponytail: Hindi only; other languages rely on the prompt.
+function fixGender(text) {
+  if (!text) return text
+  const male = db.profile?.persona === 'male'
+  const pairs = [['ती हूँ', 'ता हूँ'], ['रही हूँ', 'रहा हूँ'], ['ऊँगी', 'ऊँगा'], ['ूँगी', 'ूँगा'], ['गई हूँ', 'गया हूँ'], ['सकती हूँ', 'सकता हूँ']]
+  for (const [f, m] of pairs) text = male ? text.split(f).join(m) : text.split(m).join(f)
+  return text
 }
 
 async function agent(text, lang, mode = 'chat', { hidden = false } = {}) {
@@ -452,6 +477,7 @@ async function agent(text, lang, mode = 'chat', { hidden = false } = {}) {
     const summary = await finishOnboarding(cards).catch((e) => (console.error('routine failed', e), ''))
     reply = [reply, summary].filter(Boolean).join(' ')
   }
+  reply = fixGender(reply)
   db.chat.push({ role: 'assistant', content: reply })
   db.chat = db.chat.slice(-40)
   save()
@@ -465,6 +491,7 @@ async function brief() {
   const headlines = lists.flat().slice(0, 4)
   const scheme = schemes[new Date().getDate() % schemes.length]
   const msg = await llm([{ role: 'system', content: `${persona()}\n${facts()}` }, { role: 'user', content: `(System: it is morning. Give ${p.name} the morning brief, spoken like a friend on the phone, 5 or 6 short sentences, no times or lists read out: a warm greeting (mention a festival if it is TODAY), the weather and what it means for their health conditions (air quality too), the next one or two things in their day, a birthday coming soon (offer to write a WhatsApp wish), two calm news items from the list in simple words, and the scheme only if it suits them. Say numbers as words. Weather: ${JSON.stringify(w)}. News: ${JSON.stringify(headlines.map((h) => h.title))}. Scheme: ${JSON.stringify(scheme)})` }])
+  msg.content = fixGender(msg.content)
   db.chat.push({ role: 'assistant', content: msg.content })
   return { reply: msg.content, cards: [{ type: 'news', topic: topics.join(', '), items: headlines }] }
 }
@@ -627,11 +654,12 @@ app.post('/api/chat', express.json(), wrap(async (req, res) => {
 // Translate UI strings once per language.
 const translations = new Map()
 app.post('/api/translate', express.json(), wrap(async (req, res) => {
-  const { lang, lines } = req.body
+  const { lang, lines, speaker, listener } = req.body // speaker: persona gender; listener: user gender
   if (lang === 'en-IN') return res.json(lines)
-  const key = lang + lines.join('|')
+  const key = [lang, speaker, listener, lines.join('|')].join('/')
   if (!translations.has(key)) {
-    const msg = await llm([{ role: 'user', content: `Translate each line into ${LANGS[lang]} (native script) for an elderly person: warm, simple, respectful. Keep {placeholders} unchanged. Return only a JSON array of ${lines.length} strings.\n${JSON.stringify(lines)}` }], { temperature: 0.2 })
+    const who = `${speaker ? `Lines in first person ("I") are said by a ${speaker === 'male' ? 'man: use masculine' : 'woman: use feminine'} forms for "I".` : 'Use gender-neutral forms for "I" where you can.'} ${listener ? `The reader is a ${listener === 'male' ? 'man' : 'woman'}: use matching forms for "you".` : ''}`
+    const msg = await llm([{ role: 'user', content: `Translate each line into ${LANGS[lang]} (native script) for an elderly person. Sound like a warm old friend: casual, everyday words, not formal or bookish. ${who} Keep {placeholders} unchanged. Return only a JSON array of ${lines.length} strings.\n${JSON.stringify(lines)}` }], { temperature: 0.2 })
     translations.set(key, parseJson(msg.content))
   }
   res.json(translations.get(key))
@@ -682,6 +710,10 @@ if (process.argv[2] === 'check') {
   const { strictEqual: eq } = await import('node:assert')
   eq(judge('bp', '150/95'), 'normal'); eq(judge('bp', '165/95'), 'high'); eq(judge('bp', '140 by 105'), 'high'); eq(judge('bp', '85/55'), 'low')
   eq(judge('sugar', '180'), 'normal'); eq(judge('sugar', '260 mg'), 'high'); eq(judge('sugar', '65'), 'low'); eq(judge('pulse', '130'), 'high')
+  db.profile = { persona: 'male' }
+  eq(fixGender('समझती हूँ, याद दिलाऊँगी'), 'समझता हूँ, याद दिलाऊँगा')
+  db.profile = { persona: 'female' }
+  eq(fixGender('मैं बोल रहा हूँ, कर सकता हूँ'), 'मैं बोल रही हूँ, कर सकती हूँ')
   console.log('judge ok')
   process.exit(0)
 }
