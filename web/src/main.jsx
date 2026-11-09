@@ -215,7 +215,7 @@ function Welcome({ state, onStarted }) {
           <div className="friends">
             {Object.values(state.personas).map((p) => (
               <div key={p.id} className={`friend ${persona === p.id ? 'on' : ''}`} onClick={() => setPersona(p.id)}>
-                <Avatar persona={p} />
+                <Avatar persona={p} portrait />
                 <b>{p.name}</b>
                 <small>{t(p.id + '_role')}</small>
                 <button className="ghost" onClick={(e) => (e.stopPropagation(), setPersona(p.id), speak(t(p.id + '_intro'), lang, p.id))}>▶ {t('hear')}</button>
