@@ -1,0 +1,25 @@
+{
+  "profile": { "name": "Shanti Devi", "age": 72, "city": "Lucknow", "religion": "hindu", "conditions": ["high blood pressure", "diabetes", "knee pain"], "medicines": [{"name": "Amlodipine", "time": "08:00"}, {"name": "Metformin", "time": "21:00"}], "wake_time": "05:30", "puja_time": "06:30", "bhajan": "Hanuman Chalisa", "interests": ["cricket", "spirituality", "health tips"], "language": "hi-IN", "persona": "female", "lat": 26.85, "lon": 80.95, "doctor": {"name": "Dr. Mehra Clinic", "phone": "+910000000099"} },
+  "family": [
+    {"name": "Rahul", "relation": "son", "phone": "+910000000001", "birthday": "11-12"},
+    {"name": "Anya", "relation": "granddaughter", "phone": null, "birthday": "11-14"},
+    {"name": "Priya", "relation": "daughter", "phone": "+910000000002", "birthday": "01-05"}
+  ],
+  "health": [
+    {"type": "bp", "value": "138/86", "status": "normal", "at": "2026-11-06T03:40:00Z", "date": "2026-11-06"},
+    {"type": "sugar", "value": "142", "status": "normal", "at": "2026-11-06T03:41:00Z", "date": "2026-11-06"},
+    {"type": "bp", "value": "146/90", "status": "normal", "at": "2026-11-07T03:40:00Z", "date": "2026-11-07"},
+    {"type": "sugar", "value": "168", "status": "normal", "at": "2026-11-07T03:41:00Z", "date": "2026-11-07"},
+    {"type": "bp", "value": "152/94", "status": "normal", "at": "2026-11-08T03:40:00Z", "date": "2026-11-08"},
+    {"type": "sugar", "value": "155", "status": "normal", "at": "2026-11-08T03:41:00Z", "date": "2026-11-08"}
+  ],
+  "reminders": [
+    {"id": "r1", "text": "शांति जी, उठ जाइए! सुबह की चाय मेरे साथ?", "time": "05:30", "kind": "wake", "date": null, "lastFired": null, "done": []},
+    {"id": "r2", "text": "पूजा का समय हो गया, हनुमान चालीसा लगा दूँ?", "time": "06:30", "kind": "puja", "date": null, "lastFired": null, "done": []},
+    {"id": "r3", "text": "आठ बज गए, Amlodipine की गोली ले ली?", "time": "08:00", "kind": "medicine", "date": null, "lastFired": null, "done": []},
+    {"id": "r4", "text": "आज का BP और शुगर बता दीजिए", "time": "09:00", "kind": "health", "date": null, "lastFired": null, "done": []},
+    {"id": "r5", "text": "रात की Metformin का समय हो गया", "time": "21:00", "kind": "medicine", "date": null, "lastFired": null, "done": []}
+  ],
+  "memories": [{"fact": "Grows tulsi and roses on the balcony", "date": "2026-11-08"}],
+  "chat": []
+}

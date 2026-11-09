@@ -1,0 +1,15 @@
+[
+  {"date":"2026-11-08","name":"Diwali","religion":"hindu","bhajan":"Lakshmi Aarti Om Jai Lakshmi Mata"},
+  {"date":"2026-11-09","name":"Govardhan Puja","religion":"hindu","bhajan":"Govardhan Aarti"},
+  {"date":"2026-11-11","name":"Bhai Dooj","religion":"hindu"},
+  {"date":"2026-11-15","name":"Chhath Puja","religion":"hindu","bhajan":"Chhath Puja geet Sharda Sinha"},
+  {"date":"2026-11-20","name":"Dev Uthani Ekadashi","religion":"hindu","ekadashi":true,"bhajan":"Vishnu Sahasranamam"},
+  {"date":"2026-11-24","name":"Guru Nanak Jayanti","religion":"sikh","bhajan":"Gurbani Kirtan Japji Sahib"},
+  {"date":"2026-11-24","name":"Kartik Purnima / Dev Deepawali","religion":"hindu","bhajan":"Ganga Aarti Varanasi"},
+  {"date":"2026-12-04","name":"Utpanna Ekadashi","religion":"hindu","ekadashi":true,"bhajan":"Vishnu Sahasranamam"},
+  {"date":"2026-12-20","name":"Mokshada Ekadashi / Gita Jayanti","religion":"hindu","ekadashi":true,"bhajan":"Bhagavad Gita path"},
+  {"date":"2026-12-25","name":"Christmas","religion":"christian","bhajan":"Christmas carols Silent Night"},
+  {"date":"2027-01-01","name":"New Year","religion":"all"},
+  {"date":"2027-01-14","name":"Makar Sankranti / Pongal / Lohri","religion":"hindu","bhajan":"Surya Namaskar mantra"},
+  {"date":"2027-01-26","name":"Republic Day","religion":"all","bhajan":"Aye Mere Watan Ke Logon"}
+]
