@@ -77,12 +77,12 @@ export function partnerRouter({ now, stepMinutes = () => 1, store = () => ({}) }
   })
 
   router.post('/:store/orders', (req, res) => {
-    const store = STORES[req.params.store]
+    const shop = STORES[req.params.store]
     const med = MEDS.find(([key]) => req.body.sku === `${req.params.store}-${key}`)
-    if (!store || !med) return res.status(400).json({ error: 'unknown sku' })
+    if (!shop || !med) return res.status(400).json({ error: 'unknown sku' })
     const id = `${req.params.store.slice(0, 2).toUpperCase()}${Date.now().toString().slice(-6)}`
     store()[id] = { id, created: now(), sku: req.body.sku, qty: req.body.qty, ref: req.body.ref }
-    res.json({ order_id: id, status: 'placed', eta: `${store.eta} h` })
+    res.json({ order_id: id, status: 'placed', eta: `${shop.eta} h` })
   })
 
   // Status moves forward with the clock (one step every few minutes) so tracking can be shown live.
