@@ -2,6 +2,8 @@
 
 Saathi is a voice companion for older people in India. The companion talks like a friend of the same age, not like a helper. It speaks all 10 Gnani languages.
 
+**Solution pitch (1 page): [PITCH.md](PITCH.md)**
+
 ## Gnani models
 
 - **Prisma v3.0** (speech to text): `indic-auto` language detection and code-mixed speech.
