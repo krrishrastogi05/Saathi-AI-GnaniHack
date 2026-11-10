@@ -62,12 +62,13 @@ export function stopSpeaking() {
 
 // Speak with Gnani Timbre; fall back to the browser voice so the demo never goes silent.
 // A newer speak() or stopSpeaking() makes an older one drop its audio.
-export async function speak(text, lang, persona) {
+// voiceOf: a family member whose cloned voice should read this text.
+export async function speak(text, lang, persona, voiceOf) {
   stopSpeaking()
   const mine = turn
   if (!text) return
   try {
-    const r = await fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, lang, persona }) })
+    const r = await fetch('/api/tts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, lang, persona, voiceOf }) })
     if (!r.ok) throw new Error(await r.text())
     const blob = await r.blob()
     if (mine !== turn) return

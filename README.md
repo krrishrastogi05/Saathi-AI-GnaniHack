@@ -18,6 +18,22 @@ Saathi is a voice companion for older people in India. The companion talks like 
 - Morning brief: weather, air quality with health advice, calm news, one government scheme.
 - Demo only: food, medicine, recharge and bill orders.
 
+## Care features
+
+- **Life Graph** (Memory tab): a knowledge graph of people, medicines, conditions, places, memories, moods and orders. Every chat adds to it, and the agent uses it in each reply.
+- **Follow-ups**: the agent saves worries and plans with a follow-up flag and asks about them on later days.
+- **Mood care loop**: the agent logs moods. On a low day the family app gets a quiet nudge. A quiet morning gets a check-in at 11:00 and a family alert at 13:00. The family gets an evening digest at 20:00.
+- **Agentic medicine ordering**: stock goes down with each confirmed dose. At 5 days left the companion compares prices across pharmacy partners (cheapest and generic first), orders after the elder says yes, sends the order to the family for approval and payment, tracks it, and adds the stock on delivery.
+- **Pharmacy partner API**: Saathi uses only an HTTP contract (`GET /search`, `POST /orders`, `GET /orders/:id`, see `pharmacy.js`). Set `PHARMACY_APIS` to real partner base URLs. Without it, three labelled demo stores with synthetic prices serve the same contract at `/partner/pharmacy/*`.
+- **Messages and scam shield**: incoming messages are summarised and read aloud. Scams (OTP, KYC, prizes, links) get a firm warning, and the family is told. On a real phone an Android notification listener feeds `POST /api/messages`; in this build the family app and the demo panel post the messages.
+- **Family voices**: a family member records 5 to 30 seconds once (family app). Gnani voice cloning then reads their messages to the elder in their own voice.
+
+## Screens
+
+- `/` elder app, `/family` family app (son or daughter), `/intro` opening title for the demo video.
+- Demo controls: open `/?demo` or triple-tap the date. Set the clock (a scheduled job then fires live), make a medicine run low, send a scam SMS, send a family message, send the evening digest.
+- `ORDER_STEP_MIN` (default 1) sets how many minutes each order status takes in the demo partner.
+
 ## Set up
 
 1. Copy `.env.example` to `.env`. Set `GNANI_API_KEY` and `LLM_API_KEY`.

@@ -809,7 +809,7 @@ app.post('/api/push', express.json(), (req, res) => {
 })
 
 // Speech to text: browser sends a 16 kHz mono WAV.
-app.post('/api/stt', express.raw({ type: '*/*', limit: '10mb' }), wrap(async (req, res) => {
+app.post('/api/stt', express.raw({ type: () => true, limit: '10mb' }), wrap(async (req, res) => {
   const fd = new FormData()
   fd.append('audio_file', new Blob([req.body], { type: 'audio/wav' }), 'speech.wav')
   fd.append('model', 'prisma-v3.0')
@@ -966,9 +966,12 @@ app.post('/api/family/orders/:id', express.json(), wrap(async (req, res) => {
   res.json(o)
 }))
 // Record a family member's voice once (5-30 s); Gnani turns it into a speaker embedding.
-app.post('/api/family/voice/:name', express.raw({ type: '*/*', limit: '10mb' }), wrap(async (req, res) => {
+app.post('/api/family/voice/:name', express.raw({ type: () => true, limit: '10mb' }), wrap(async (req, res) => {
+  const wav = Buffer.from(req.body)
+  // The clone service rejects a streaming WAV header (sizes 0xFFFFFFFF); write the real sizes.
+  if (wav.toString('ascii', 0, 4) === 'RIFF' && wav.readUInt32LE(40) === 0xffffffff) wav.writeUInt32LE(wav.length - 8, 4), wav.writeUInt32LE(wav.length - 44, 40)
   const fd = new FormData()
-  fd.append('audio_file', new Blob([req.body], { type: 'audio/wav' }), 'voice.wav')
+  fd.append('audio_file', new Blob([wav], { type: 'audio/wav' }), 'voice.wav')
   const r = await inLine('tts', () => fetchRetry(`${GNANI}/api/v1/tts/voice-clone/embeddings`, { method: 'POST', headers: { 'X-API-Key-ID': KEY }, body: fd }))
   const j = await safeJson(r)
   const emb = j.data?.voice_clone_embedding
@@ -1028,15 +1031,17 @@ app.post('/api/demo/clock', express.json(), (req, res) => {
   tick()
   res.json(ist())
 })
-app.post('/api/demo/stock', express.json(), (req, res) => {
+// Low stock at any hour: the companion speaks up straight away (the daily check waits for 09:30).
+app.post('/api/demo/stock', express.json(), wrap(async (req, res) => {
+  const first = medsOf()[0]
+  if (!first) return res.status(400).json({ error: 'no medicines' })
+  setStock(first.name, req.body.count ?? 6)
   const m = medsOf()[0]
-  if (!m) return res.status(400).json({ error: 'no medicines' })
-  setStock(m.name, req.body.count ?? 6)
-  delete db.daily[ist().date]?.['stock:' + m.key]
+  if (db.daily[ist().date]) db.daily[ist().date]['stock:' + m.key] = true
+  const ev = await agentEvent('medicine', m.name, `${m.name} has only ${m.stock} tablets left, about ${m.daysLeft} days. Tell them, call find_medicine, say the best price in one line, and ask if you should order it (family will approve and pay).`)
   save()
-  tick()
-  res.json(medsOf())
-})
+  res.json(ev)
+}))
 app.post('/api/demo/digest', wrap(async (req, res) => res.json(await familyDigest())))
 
 app.get('/api/brief', wrap(async (req, res) => {
@@ -1048,7 +1053,7 @@ app.get('/api/brief', wrap(async (req, res) => {
 app.post('/api/reset', (req, res) => ((db = { ...empty(), push: db.push }), save(), res.json({ ok: true })))
 
 // Demo pharmacy partners, served over the same HTTP contract a real partner would implement.
-app.use('/partner/pharmacy', partnerRouter({ now, stepMinutes: () => +(process.env.ORDER_STEP_MIN || 1) }))
+app.use('/partner/pharmacy', partnerRouter({ now, stepMinutes: () => +(process.env.ORDER_STEP_MIN || 1), store: () => (db.partner ??= {}) }))
 
 const dist = fileURLToPath(new URL('./web/dist', import.meta.url))
 app.use(express.static(dist))

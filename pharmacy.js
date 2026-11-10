@@ -54,9 +54,9 @@ const STORES = {
 }
 const FLOW = ['placed', 'confirmed', 'packed', 'out_for_delivery', 'delivered']
 
-export function partnerRouter({ now, stepMinutes = () => 1 }) {
+// `store()` returns a plain object that persists (the demo partner keeps its orders across restarts, like a real one).
+export function partnerRouter({ now, stepMinutes = () => 1, store = () => ({}) }) {
   const router = express.Router()
-  const orders = new Map()
   router.use(express.json())
 
   router.get('/:store/search', (req, res) => {
@@ -81,13 +81,13 @@ export function partnerRouter({ now, stepMinutes = () => 1 }) {
     const med = MEDS.find(([key]) => req.body.sku === `${req.params.store}-${key}`)
     if (!store || !med) return res.status(400).json({ error: 'unknown sku' })
     const id = `${req.params.store.slice(0, 2).toUpperCase()}${Date.now().toString().slice(-6)}`
-    orders.set(id, { id, created: now(), sku: req.body.sku, qty: req.body.qty, ref: req.body.ref })
+    store()[id] = { id, created: now(), sku: req.body.sku, qty: req.body.qty, ref: req.body.ref }
     res.json({ order_id: id, status: 'placed', eta: `${store.eta} h` })
   })
 
   // Status moves forward with the clock (one step every few minutes) so tracking can be shown live.
   router.get('/:store/orders/:id', (req, res) => {
-    const o = orders.get(req.params.id)
+    const o = store()[req.params.id]
     if (!o) return res.status(404).json({ error: 'no such order' })
     const step = Math.min(FLOW.length - 1, Math.floor((now() - o.created) / (stepMinutes() * 60000)))
     res.json({ order_id: o.id, status: FLOW[step], history: FLOW.slice(0, step + 1).map((s, i) => ({ status: s, at: o.created + i * stepMinutes() * 60000 })) })

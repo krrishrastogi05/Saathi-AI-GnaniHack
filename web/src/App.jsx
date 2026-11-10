@@ -3,35 +3,14 @@ import {
   House, AlarmClock, HeartPulse, Users, Keyboard, Sunrise, Mic, Square, Pill, Flame, Music, Stethoscope, PhoneCall, Phone,
   Droplets, Footprints, UtensilsCrossed, Newspaper, Sun, Receipt, Cake, Sparkles, TriangleAlert, Bell, Play, Pause, Trash2,
   MessageCircle, ShoppingBag, Check, Cloud, CloudRain, CloudFog, CloudSun, Wind, X, SendHorizontal, WifiOff, ArrowRight,
-  Volume2, LifeBuoy, Clock, ChevronLeft, Youtube, CircleCheck, Circle,
+  Volume2, LifeBuoy, Clock, ChevronLeft, Youtube, CircleCheck, Circle, Network, Truck, PackageCheck, ShieldAlert, Store, BadgePercent,
+  SlidersHorizontal, Inbox,
 } from 'lucide-react'
+import LifeGraph from './LifeGraph.jsx'
 import { record, speak, stopSpeaking } from './audio.js'
 import Avatar from './Avatar.jsx'
+import { api, report, untag } from './api.js'
 import './styles.css'
-
-// ---------- api ----------
-// Errors carry a "kind" so the app can show a friendly line instead of "Failed to fetch".
-const fail = (kind, detail) => Object.assign(new Error(detail), { kind })
-async function api(path, body, opts = {}) {
-  const init = body === undefined ? { method: opts.method } : opts.raw ? { method: 'POST', body } : { method: opts.method || 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
-  let r, j
-  for (let i = 0; ; i++) {
-    try {
-      r = await fetch('/api' + path, init)
-      j = await r.json().catch(() => null)
-      if (r.ok || j) break // a non-JSON error is the dev proxy saying the API server is down
-    } catch {}
-    if (i >= 2) throw fail('offline', `api ${r?.status ?? 'unreachable'}`) // the app server is down or restarting
-    await new Promise((res) => setTimeout(res, 1200))
-  }
-  if (!r.ok) throw fail(/network|ENOTFOUND|timeout|cannot reach/i.test(j.error ?? '') ? 'internet' : /busy|rate limit/i.test(j.error ?? '') ? 'busy' : 'server', j.error || r.statusText)
-  return j
-}
-// Shown as a toast by <App>; console keeps the detail for debugging.
-const report = (e) => (console.warn(e), window.dispatchEvent(new CustomEvent('saathi-error', { detail: e.kind ?? (e.name === 'NotAllowedError' ? 'mic' : 'server') })))
-
-// Gnani Timbre expression tags are spoken, never shown.
-const untag = (s) => String(s ?? '').replace(/<(laugh|giggle|sigh|exhales|sniffles|yawns|coughs|clears throat|whispers|shouting|excited|slow|pauses)>\s*/g, '').trim()
 
 // ---------- i18n ----------
 // English source strings. Each language is translated once per speaker/listener gender and cached on the device.
@@ -99,6 +78,27 @@ const EN = {
   errBusy: 'Too many things at once! Give me a few seconds and try again.',
   errMic: 'Please allow the microphone so I can hear you.',
   errServer: 'Something went wrong. Please try again.',
+  memory: 'Memory',
+  memoryHint: 'Everything I remember about you and your family. It grows every time we talk.',
+  medicines: 'Medicines',
+  tabletsLeft: '{n} tablets left',
+  daysLeft: 'about {n} days',
+  stockUnknown: 'Tell me how many are left',
+  bestPrices: 'Best prices right now',
+  generic: 'Generic',
+  cheapest: 'Cheapest',
+  orderTitle: 'Medicine order',
+  awaiting_approval: 'Waiting for family approval',
+  placed: 'Order placed',
+  confirmed: 'Confirmed',
+  packed: 'Packed',
+  out_for_delivery: 'On the way',
+  delivered: 'Delivered',
+  declined: 'Declined',
+  messages: 'Messages',
+  scamWarn: 'Scam! Do not reply or share any OTP.',
+  billPaid: 'Done (demo)',
+  orderIt: 'Yes, order it',
 }
 const keys = Object.keys(EN)
 
@@ -131,6 +131,7 @@ const KIND = {
   medicine: [Pill, 'rose'], puja: [Flame, 'saffron'], bhajan: [Music, 'violet'], wake: [Sunrise, 'amber'], health: [Stethoscope, 'violet'],
   call: [PhoneCall, 'leaf'], water: [Droplets, 'cyan'], walk: [Footprints, 'leaf'], meal: [UtensilsCrossed, 'amber'], news: [Newspaper, 'blue'],
   brief: [Sun, 'amber'], bill: [Receipt, 'slate'], birthday: [Cake, 'pink'], festival: [Sparkles, 'saffron'], escalation: [TriangleAlert, 'red'], other: [Bell, 'blue'],
+  message: [MessageCircle, 'blue'], scam: [ShieldAlert, 'red'], order: [Truck, 'leaf'],
 }
 function KindIcon({ kind, size = 20 }) {
   const [Icon, tone] = KIND[kind] ?? KIND.other
@@ -339,13 +340,30 @@ function Card({ c, t, lang }) {
       </div>
     )
   if (c.type === 'health') return <div className="chip ok"><Check size={16} /> {c.reading}</div>
-  if (c.type === 'order')
+  if (c.type === 'purchase')
     return (
       <div className="card row-card">
         <span className="tile tone-amber big"><ShoppingBag size={24} /></span>
-        <div className="grow"><b>{c.item}</b><small>{t('orderPlaced')} · {c.eta}</small></div>
+        <div className="grow"><b>{c.item}</b><small>{t('billPaid')} · {c.eta}</small></div>
       </div>
     )
+  if (c.type === 'offers')
+    return (
+      <div className="card offers">
+        <small className="eyebrow"><Store size={14} /> {t('bestPrices')} · {c.name}</small>
+        {c.offers.map((o, i) => (
+          <div key={o.sku} className={`offer ${i === 0 ? 'best' : ''}`}>
+            <div className="grow"><b>{o.partner.replace(' (demo store)', '')}</b><small>{o.name} {o.strength} · {o.pack} · {o.eta_hours} h</small></div>
+            <div className="offer-price">
+              {i === 0 && <span className="tag"><BadgePercent size={12} /> {t('cheapest')}</span>}
+              <b>₹{o.price}</b>{o.mrp > o.price && <s>₹{o.mrp}</s>}
+            </div>
+          </div>
+        ))}
+        <small className="demo-note">Demo partner stores · synthetic prices</small>
+      </div>
+    )
+  if (c.type === 'order') return <OrderCard o={c.order} t={t} />
   if (c.type === 'news')
     return (
       <div className="card news">
@@ -354,6 +372,22 @@ function Card({ c, t, lang }) {
       </div>
     )
   return null
+}
+
+const STEPS = ['awaiting_approval', 'placed', 'confirmed', 'packed', 'out_for_delivery', 'delivered']
+function OrderCard({ o, t }) {
+  if (!o) return null
+  const at = STEPS.indexOf(o.status)
+  return (
+    <div className="card order-card">
+      <div className="row-card">
+        <span className="tile tone-leaf big">{o.status === 'delivered' ? <PackageCheck size={24} /> : <Truck size={24} />}</span>
+        <div className="grow"><b>{o.med}</b><small>{o.offer.partner.replace(' (demo store)', '')} · {o.qty} × ₹{o.offer.price} = ₹{o.total}</small></div>
+      </div>
+      <p className={`order-status ${o.status}`}>{t(o.status)}</p>
+      <ol className="track">{STEPS.slice(1).map((s, i) => <li key={s} className={i + 1 <= at ? 'on' : ''}><i />{t(s)}</li>)}</ol>
+    </div>
+  )
 }
 
 function Spark({ values, color }) {
@@ -382,6 +416,7 @@ function Home({ state, reload }) {
   const [typing, setTyping] = useState(false)
   const [text, setText] = useState('')
   const [firing, setFiring] = useState(null)
+  const [demo, setDemo] = useState(() => new URLSearchParams(location.search).has('demo'))
 
   const reply = async (you, run, setPhase, replyLang = lang) => {
     setPhase('thinking')
@@ -417,7 +452,7 @@ function Home({ state, reload }) {
       const ev = JSON.parse(m.data)
       setFiring(ev)
       reload()
-      if (ev.kind !== 'escalation') speak(ev.text, lang, p.persona)
+      if (ev.kind !== 'escalation') speak(ev.text, lang, p.persona, ev.voiceOf)
     }
     return () => es.close()
   }, [])
@@ -446,7 +481,7 @@ function Home({ state, reload }) {
     <div className="home">
       <header className="top">
         <div className="top-text">
-          <small className="date" onDoubleClick={() => next && api(`/jobs/${next.jobId}/run`, {})}>
+          <small className="date" onClick={(e) => e.detail === 3 && setDemo(true)} onDoubleClick={() => next && api(`/jobs/${next.jobId}/run`, {})}>
             {new Date(now.date + 'T12:00').toLocaleDateString(lang, { weekday: 'long', day: 'numeric', month: 'long' })}
           </small>
           <h1>{onboarding ? t('gettingToKnow') : t('greet', { name: p.name?.split(' ')[0] })}</h1>
@@ -516,6 +551,15 @@ function Home({ state, reload }) {
               </div>
             )}
 
+            {state.orders.filter((o) => !['delivered', 'declined'].includes(o.status)).map((o) => <OrderCard key={o.id} o={o} t={t} />)}
+            {state.messages.filter((m) => Date.now() - m.at < 864e5).slice(-3).reverse().map((m) => (
+              <div key={m.id} className={`card row-card msg-row ${m.scam ? 'scam' : ''}`}>
+                <span className={`tile ${m.scam ? 'tone-red' : 'tone-blue'}`}>{m.scam ? <ShieldAlert size={20} /> : <MessageCircle size={20} />}</span>
+                <div className="grow"><b>{m.from}</b><small>{m.scam ? t('scamWarn') : m.summary}</small></div>
+                {!m.scam && <button className="mini" aria-label="play" onClick={() => speak(m.summary, lang, p.persona)}><Volume2 size={16} /></button>}
+              </div>
+            ))}
+
             <h3 className="section">{t('todayPlan')}</h3>
             <ol className="timeline">
               {state.today.map((r) => (
@@ -553,6 +597,18 @@ function Home({ state, reload }) {
         {!onboarding && tab === 'health' && (
           <>
             <p className="hint"><Mic size={18} /> {t('healthHint')}</p>
+            <h3 className="section">{t('medicines')}</h3>
+            {state.meds.map((m) => (
+              <div key={m.key} className={`card row-card med-row ${m.daysLeft != null && m.daysLeft <= 5 ? 'low' : ''}`}>
+                <span className="tile tone-rose"><Pill size={20} /></span>
+                <div className="grow">
+                  <b>{m.name}</b>
+                  <small><Clock size={13} /> {m.times.join(' · ')} · {m.stock == null ? t('stockUnknown') : `${t('tabletsLeft', { n: m.stock })}, ${t('daysLeft', { n: m.daysLeft })}`}</small>
+                  {m.stock != null && <div className="stock"><i style={{ width: `${Math.min(100, (m.daysLeft / 30) * 100)}%` }} /></div>}
+                </div>
+              </div>
+            ))}
+            {state.orders.slice(-2).reverse().map((o) => <OrderCard key={o.id} o={o} t={t} />)}
             <div className="metrics">
               <div className="metric"><small><HeartPulse size={15} /> BP</small><b>{bp.at(-1)?.value ?? '—'}</b><Spark values={bp.map((h) => parseInt(h.value))} color="var(--rose)" /></div>
               <div className="metric"><small><Droplets size={15} /> Sugar</small><b>{sugar.at(-1)?.value ?? '—'}</b><Spark values={sugar.map((h) => parseInt(h.value))} color="var(--brand)" /></div>
@@ -567,6 +623,13 @@ function Home({ state, reload }) {
                 </li>
               ))}
             </ol>
+          </>
+        )}
+
+        {!onboarding && tab === 'memory' && (
+          <>
+            <p className="hint"><Network size={18} /> {t('memoryHint')}</p>
+            <LifeGraph refreshKey={[state.memories.length, state.family.length, state.moods.length, state.orders.length, state.meds.map((m) => m.stock).join()].join('.')} persona={p.persona} />
           </>
         )}
 
@@ -608,7 +671,7 @@ function Home({ state, reload }) {
       </div>
       {!onboarding && (
         <nav className="tabs">
-          {[['today', House], ['routine', AlarmClock], ['health', HeartPulse], ['family', Users]].map(([k, Icon]) => (
+          {[['today', House], ['routine', AlarmClock], ['health', HeartPulse], ['memory', Network], ['family', Users]].map(([k, Icon]) => (
             <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>
               <span className="tab-icon"><Icon size={22} strokeWidth={tab === k ? 2.4 : 2} /></span>
               {t(k)}
@@ -616,6 +679,8 @@ function Home({ state, reload }) {
           ))}
         </nav>
       )}
+
+      {demo && <DemoPanel state={state} onClose={() => setDemo(false)} reload={reload} />}
 
       {firing && (
         <div className="ring fade">
@@ -628,7 +693,9 @@ function Home({ state, reload }) {
               </div>
             </div>
             {firing.kind !== 'escalation' && <p className="ring-text">{untag(firing.text)}</p>}
+            {firing.voiceOf && <button className="pill-btn" onClick={() => speak(firing.text, lang, p.persona, firing.voiceOf)}><Volume2 size={18} /> {firing.voiceOf}</button>}
             {firing.cards?.map((c, i) => <Card key={i} c={c} t={t} lang={lang} />)}
+            {firing.cards?.some((c) => c.type === 'offers') && <button className="primary big" onClick={() => (closeEvent(), say('Haan, sabse sasti wali mangwa do', t('orderIt')))}><Truck size={22} /> {t('orderIt')}</button>}
             {firing.status === 'pending' ? (
               <>
                 <button className="primary big" onClick={() => closeEvent('done')}><Check size={24} strokeWidth={3} /> {t('done')}</button>
@@ -640,6 +707,36 @@ function Home({ state, reload }) {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// Presenter controls for recording a demo. Open with ?demo or a triple tap on the date.
+const SAMPLE_SCAM = 'Dear customer, your SBI account will be BLOCKED today. Update KYC now at http://sbi-kyc-upd.in and share the OTP sent to you.'
+function DemoPanel({ state, onClose, reload }) {
+  const [time, setTime] = useState(state.now.time)
+  const fam = state.family.find((m) => m.phone) ?? state.family[0]
+  const [msg, setMsg] = useState('Maa, aaj shaam 7 baje video call karte hain. Khana time pe kha lena!')
+  const act = (path, body) => api(path, body).then(reload).catch(report)
+  return (
+    <div className="ring fade" onClick={onClose}>
+      <div className="ring-card demo-panel" onClick={(e) => e.stopPropagation()}>
+        <b className="ring-title"><SlidersHorizontal size={18} /> Demo controls</b>
+        <div className="demo-row">
+          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+          <button className="btn ghost" onClick={() => act('/demo/clock', { time })}>Set clock</button>
+          <button className="btn ghost" onClick={() => act('/demo/clock', {})}>Real time</button>
+        </div>
+        <button className="btn ghost" onClick={() => act('/demo/stock', { count: 6 })}><Pill size={18} /> Medicine running low</button>
+        <button className="btn ghost" onClick={() => act('/messages', { from: 'VK-SBIBNK', text: SAMPLE_SCAM, channel: 'SMS' })}><ShieldAlert size={18} /> Scam SMS arrives</button>
+        <textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={2} />
+        {fam && <button className="btn ghost" onClick={() => act('/messages', { from: fam.name, text: msg, channel: 'WhatsApp' })}><Inbox size={18} /> Message from {fam.name}</button>}
+        <button className="btn ghost" onClick={() => act('/demo/digest', {})}><Users size={18} /> Send evening digest to family</button>
+        <div className="demo-row">
+          <a className="btn ghost" href="/family" target="_blank" rel="noreferrer">Family app</a>
+          <a className="btn ghost" href="/intro" target="_blank" rel="noreferrer">Intro</a>
+        </div>
+      </div>
     </div>
   )
 }
