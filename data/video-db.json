@@ -1,0 +1,967 @@
+{
+  "profile": {
+    "name": "Shanti Devi",
+    "age": 72,
+    "city": "Lucknow",
+    "religion": "hindu",
+    "conditions": [
+      "high blood pressure",
+      "diabetes",
+      "knee pain"
+    ],
+    "medicines": [
+      {
+        "name": "Amlodipine",
+        "time": "08:00",
+        "stock": 16
+      },
+      {
+        "name": "Metformin",
+        "time": "21:00",
+        "stock": 40
+      }
+    ],
+    "wake_time": "05:30",
+    "puja_time": "06:30",
+    "bhajan": "Hanuman Chalisa",
+    "interests": [
+      "cricket",
+      "spirituality",
+      "health tips"
+    ],
+    "language": "hi-IN",
+    "persona": "female",
+    "lat": 26.85,
+    "lon": 80.95,
+    "doctor": {
+      "name": "Dr. Mehra Clinic",
+      "phone": "+910000000099"
+    },
+    "gender": "female"
+  },
+  "family": [
+    {
+      "name": "Rahul",
+      "relation": "son",
+      "phone": "+910000000001",
+      "birthday": "11-12"
+    },
+    {
+      "name": "Anya",
+      "relation": "granddaughter",
+      "phone": null,
+      "birthday": "11-14"
+    },
+    {
+      "name": "Priya",
+      "relation": "daughter",
+      "phone": "+910000000002",
+      "birthday": "01-05"
+    }
+  ],
+  "health": [
+    {
+      "type": "bp",
+      "value": "138/86",
+      "status": "normal",
+      "at": "2026-11-06T03:40:00Z",
+      "date": "2026-11-06"
+    },
+    {
+      "type": "sugar",
+      "value": "142",
+      "status": "normal",
+      "at": "2026-11-06T03:41:00Z",
+      "date": "2026-11-06"
+    },
+    {
+      "type": "bp",
+      "value": "146/90",
+      "status": "normal",
+      "at": "2026-11-07T03:40:00Z",
+      "date": "2026-11-07"
+    },
+    {
+      "type": "sugar",
+      "value": "168",
+      "status": "normal",
+      "at": "2026-11-07T03:41:00Z",
+      "date": "2026-11-07"
+    },
+    {
+      "type": "bp",
+      "value": "152/94",
+      "status": "normal",
+      "at": "2026-11-08T03:40:00Z",
+      "date": "2026-11-08"
+    },
+    {
+      "type": "sugar",
+      "value": "155",
+      "status": "normal",
+      "at": "2026-11-08T03:41:00Z",
+      "date": "2026-11-08"
+    }
+  ],
+  "jobs": [
+    {
+      "id": "j1",
+      "title": "सुबह हो गई",
+      "kind": "wake",
+      "schedule": {
+        "type": "daily",
+        "time": "05:30"
+      },
+      "action": "say",
+      "say": "<excited> सुबह हो गई, शांति जी! उठ जाइए, चाय का टाइम हो गया।",
+      "task": null,
+      "escalateAfterMin": null,
+      "escalateTo": null,
+      "active": true,
+      "created": 0,
+      "nextRun": 1794441600000,
+      "lastRun": 1794355200000
+    },
+    {
+      "id": "j2",
+      "title": "पूजा का समय – हनुमान चालीसा",
+      "kind": "puja",
+      "schedule": {
+        "type": "daily",
+        "time": "06:30"
+      },
+      "action": "agent",
+      "say": "पूजा का समय – हनुमान चालीसा",
+      "task": "Wish her for puja and play Hanuman Chalisa",
+      "escalateAfterMin": null,
+      "escalateTo": null,
+      "active": true,
+      "created": 0,
+      "nextRun": 1794445200000
+    },
+    {
+      "id": "j3",
+      "title": "सुबह की बातें",
+      "kind": "brief",
+      "schedule": {
+        "type": "daily",
+        "time": "06:00"
+      },
+      "action": "brief",
+      "say": "सुबह की बातें",
+      "task": null,
+      "escalateAfterMin": null,
+      "escalateTo": null,
+      "active": true,
+      "created": 0,
+      "nextRun": 1794443400000
+    },
+    {
+      "id": "j4",
+      "title": "Amlodipine की गोली",
+      "kind": "medicine",
+      "schedule": {
+        "type": "daily",
+        "time": "08:00"
+      },
+      "action": "say",
+      "say": "अरे, आठ बज गए! Amlodipine अभी लीजिए, कोई बहाना नहीं।",
+      "task": null,
+      "escalateAfterMin": 30,
+      "escalateTo": "Rahul",
+      "active": true,
+      "created": 0,
+      "med": "Amlodipine",
+      "nextRun": 1794450600000,
+      "lastRun": 1794364200000
+    },
+    {
+      "id": "j5",
+      "title": "आज का BP और शुगर",
+      "kind": "health",
+      "schedule": {
+        "type": "daily",
+        "time": "09:00"
+      },
+      "action": "say",
+      "say": "आज का BP और शुगर बता दीजिए",
+      "task": null,
+      "escalateAfterMin": null,
+      "escalateTo": null,
+      "active": true,
+      "created": 0,
+      "nextRun": 1794454200000
+    },
+    {
+      "id": "j6",
+      "title": "पानी पीना",
+      "kind": "water",
+      "schedule": {
+        "type": "interval",
+        "everyMinutes": 120,
+        "from": "10:00",
+        "to": "18:00"
+      },
+      "action": "say",
+      "say": "एक गिलास पानी पी लीजिए",
+      "task": null,
+      "escalateAfterMin": null,
+      "escalateTo": null,
+      "active": true,
+      "created": 0,
+      "nextRun": 1794400200000,
+      "lastRun": 1794385800000
+    },
+    {
+      "id": "j7",
+      "title": "रात की Metformin",
+      "kind": "medicine",
+      "schedule": {
+        "type": "daily",
+        "time": "21:00"
+      },
+      "action": "say",
+      "say": "रात की Metformin",
+      "task": null,
+      "escalateAfterMin": 30,
+      "escalateTo": "Rahul",
+      "active": true,
+      "created": 0,
+      "med": "Metformin",
+      "nextRun": 1794411000000
+    },
+    {
+      "id": "j8",
+      "title": "एकादशी – विष्णु सहस्रनाम",
+      "kind": "festival",
+      "schedule": {
+        "type": "festival",
+        "festival": "ekadashi",
+        "time": "06:15"
+      },
+      "action": "agent",
+      "say": "एकादशी – विष्णु सहस्रनाम",
+      "task": "Wish her a happy Ekadashi and play Vishnu Sahasranamam",
+      "escalateAfterMin": null,
+      "escalateTo": null,
+      "active": true,
+      "created": 0,
+      "nextRun": 1795135500000
+    },
+    {
+      "id": "j9",
+      "title": "जन्मदिन की तैयारी",
+      "kind": "birthday",
+      "schedule": {
+        "type": "birthday",
+        "daysBefore": 1,
+        "time": "19:00"
+      },
+      "action": "agent",
+      "say": "जन्मदिन की तैयारी",
+      "task": "Remind her whose birthday is tomorrow and draft a WhatsApp wish for them",
+      "escalateAfterMin": null,
+      "escalateTo": null,
+      "active": true,
+      "created": 0,
+      "nextRun": 1794403800000
+    },
+    {
+      "id": "j10",
+      "title": "बिजली का बिल",
+      "kind": "bill",
+      "schedule": {
+        "type": "monthly",
+        "dayOfMonth": 5,
+        "time": "11:00"
+      },
+      "action": "say",
+      "say": "आज बिजली का बिल भरने का दिन है",
+      "task": null,
+      "escalateAfterMin": null,
+      "escalateTo": null,
+      "active": true,
+      "created": 0,
+      "nextRun": 1796448600000
+    }
+  ],
+  "events": [
+    {
+      "id": "mwa746pcplpy",
+      "jobId": "j1",
+      "title": "शांति जी, उठ जाइए! सुबह की चाय मेरे साथ?",
+      "kind": "wake",
+      "at": 1794268800003,
+      "status": "info",
+      "text": "शांति जी, उठ जाइए! सुबह की चाय मेरे साथ?",
+      "cards": []
+    },
+    {
+      "id": "mwa7f2ybe1pw",
+      "jobId": "j1",
+      "title": "शांति जी, उठ जाइए! सुबह की चाय मेरे साथ?",
+      "kind": "wake",
+      "at": 1794268800002,
+      "status": "info",
+      "text": "शांति जी, उठ जाइए! सुबह की चाय मेरे साथ?",
+      "cards": []
+    },
+    {
+      "id": "mwa7g1nf2l8s",
+      "jobId": "j4",
+      "title": "Amlodipine की गोली",
+      "kind": "medicine",
+      "at": 1794277800003,
+      "status": "missed",
+      "text": "आठ बज गए शांति जी, Amlodipine की गोली ले ली?",
+      "cards": [],
+      "escalateAt": 1794279600003,
+      "escalateTo": "Rahul"
+    },
+    {
+      "id": "mwa7gih9vr3f",
+      "title": "VK-SBIBNK",
+      "kind": "scam",
+      "at": 1794277821813,
+      "status": "info",
+      "text": "अरे शांति जी, ये SMS पूरी तरह स्कैम है, लिंक नहीं खोलिए और OTP कभी नहीं देंगे—मैं ही परिवार को बता दूँगी!<sigh> तुरंत इस संदेश को डिलीट करिए, कोई जवाब न दें.",
+      "cards": [],
+      "message": {
+        "id": "mwa7gih9btnx",
+        "from": "VK-SBIBNK",
+        "channel": "SMS",
+        "text": "Dear customer, your SBI account will be BLOCKED today. Update KYC now at http://sbi-kyc-upd.in and share the OTP sent to you.",
+        "summary": "VK‑SBIBNK ने कहा है कि आपका SBI खाता ब्लॉक हो जाएगा, इसलिए KYC अपडेट करने और OTP भेजने के लिए लिंक खोलें.",
+        "scam": true,
+        "reason": "The message asks for KYC verification and to share an OTP via a suspicious link, creating urgency and threat of account blockage.",
+        "at": 1794277821813,
+        "read": false
+      }
+    },
+    {
+      "id": "mwa7hb2vqmh5",
+      "title": "Amlodipine की गोली ✗",
+      "kind": "escalation",
+      "at": 1794289200003,
+      "status": "info",
+      "text": "Saathi: Shanti Devi has not confirmed \"Amlodipine की गोली\" (08:00). Please give a call.",
+      "cards": [
+        {
+          "type": "escalation",
+          "family": {
+            "name": "Rahul",
+            "relation": "son",
+            "phone": "+910000000001",
+            "birthday": "11-12"
+          },
+          "message": "Saathi: Shanti Devi has not confirmed \"Amlodipine की गोली\" (08:00). Please give a call.",
+          "url": "https://wa.me/910000000001?text=Saathi%3A%20Shanti%20Devi%20has%20not%20confirmed%20%22Amlodipine%20%E0%A4%95%E0%A5%80%20%E0%A4%97%E0%A5%8B%E0%A4%B2%E0%A5%80%22%20(08%3A00).%20Please%20give%20a%20call."
+        }
+      ]
+    },
+    {
+      "id": "mwa7hb2y7shs",
+      "title": "check-in",
+      "kind": "call",
+      "at": 1794289200006,
+      "status": "info",
+      "text": "अरे शांति जी, कैसे हैं आप? आज सुबह की चाय साथ में ली? कुर्सी पर बैठते‑बैठते घुटने में दर्द नहीं बढ़ा, अन्या का नाच‑प्रदर्शन चल रहा है?",
+      "cards": []
+    },
+    {
+      "id": "mwa7kl1kpu2b",
+      "title": "Amlodipine",
+      "kind": "medicine",
+      "at": 1794283805496,
+      "status": "info",
+      "text": "<sigh> सबसे सस्ता है Generic Kendra से, 10 टैबलेट की स्ट्रिप में सिर्फ ₹14। ऑर्डर करूँ?",
+      "cards": [
+        {
+          "type": "offers",
+          "name": "Amlodipine",
+          "offers": [
+            {
+              "sku": "generic-amlodipine",
+              "name": "Amlodipine (generic)",
+              "strength": "5 mg",
+              "pack": "strip of 10",
+              "mrp": 32,
+              "price": 14,
+              "generic": true,
+              "eta_hours": 6,
+              "in_stock": true,
+              "partner": "Generic Kendra (demo store)"
+            },
+            {
+              "sku": "carekart-amlodipine",
+              "name": "Amlodipine",
+              "strength": "5 mg",
+              "pack": "strip of 10",
+              "mrp": 32,
+              "price": 32,
+              "generic": false,
+              "eta_hours": 3,
+              "in_stock": true,
+              "partner": "CareKart (demo store)"
+            },
+            {
+              "sku": "quickmeds-amlodipine",
+              "name": "Amlodipine",
+              "strength": "5 mg",
+              "pack": "strip of 10",
+              "mrp": 32,
+              "price": 36,
+              "generic": false,
+              "eta_hours": 1,
+              "in_stock": true,
+              "partner": "QuickMeds (demo store)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mwa7q70rtuvi",
+      "title": "Amlodipine (generic)",
+      "kind": "order",
+      "at": 1794286286091,
+      "status": "info",
+      "text": "<audio> <excited> अरे शांति जी, बहुत बढ़िया! राहुल ने जनरिक दवा की ऑर्डर की पुष्टि कर दी, अब वो रास्ते में है—सिर्फ कुछ ही दिनों में पहुंच जाएगी। <laugh> चलिए, थोड़ा गाना सुनते हैं, दिल को हल्का कर लें!",
+      "cards": []
+    },
+    {
+      "id": "mwa7q9j5nbaz",
+      "jobId": "j6",
+      "title": "पानी पीना",
+      "kind": "water",
+      "at": 1794286289345,
+      "status": "pending",
+      "text": "एक गिलास पानी पी लीजिए",
+      "cards": []
+    },
+    {
+      "id": "mwa7qq25avz0",
+      "title": "Amlodipine (generic)",
+      "kind": "order",
+      "at": 1794286800012,
+      "status": "info",
+      "text": "अरे शांति जी, आपका Amlodipine (जनरिक) अब पहुंच गया है! <laugh> कृपया इसे रोज़ की तरह सुबह के नाश्ते के पास रखिए, ताकि 08:00 बजे आसानी से ले सकें।",
+      "cards": []
+    },
+    {
+      "id": "mwa7sa4m4f2v",
+      "title": "Amlodipine",
+      "kind": "medicine",
+      "at": 1794287412443,
+      "status": "info",
+      "text": "<sigh> सबसे सस्ता Generic Kendra से है, 10 टैबलेट की स्ट्रिप सिर्फ ₹14 में। अब ऑर्डर करूँ?",
+      "cards": [
+        {
+          "type": "offers",
+          "name": "Amlodipine",
+          "offers": [
+            {
+              "sku": "generic-amlodipine",
+              "name": "Amlodipine (generic)",
+              "strength": "5 mg",
+              "pack": "strip of 10",
+              "mrp": 32,
+              "price": 14,
+              "generic": true,
+              "eta_hours": 6,
+              "in_stock": true,
+              "partner": "Generic Kendra (demo store)"
+            },
+            {
+              "sku": "carekart-amlodipine",
+              "name": "Amlodipine",
+              "strength": "5 mg",
+              "pack": "strip of 10",
+              "mrp": 32,
+              "price": 32,
+              "generic": false,
+              "eta_hours": 3,
+              "in_stock": true,
+              "partner": "CareKart (demo store)"
+            },
+            {
+              "sku": "quickmeds-amlodipine",
+              "name": "Amlodipine",
+              "strength": "5 mg",
+              "pack": "strip of 10",
+              "mrp": 32,
+              "price": 36,
+              "generic": false,
+              "eta_hours": 1,
+              "in_stock": true,
+              "partner": "QuickMeds (demo store)"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mwa7to7x66qe",
+      "title": "Amlodipine (generic)",
+      "kind": "order",
+      "at": 1794287477362,
+      "status": "info",
+      "text": "बहुत बढ़िया, राहुल ने ऑर्डर मंज़ूर कर दिया और पैसे भी दे दिए—अब आपका Generic Amlodipine रास्ते में है, जल्दी ही पहुँच जाएगा! <laugh> अब थोड़ा गाना सुनिए, मन को हल्का कर लें?",
+      "cards": []
+    },
+    {
+      "id": "mwa7uf6u7wsw",
+      "jobId": "j1",
+      "title": "सुबह हो गई",
+      "kind": "wake",
+      "at": 1794268800003,
+      "status": "info",
+      "text": "<excited> सुबह हो गई, शांति जी! उठ जाइए, चाय का टाइम हो गया।",
+      "cards": []
+    },
+    {
+      "id": "mwa7uu4n1buz",
+      "jobId": "j4",
+      "title": "Amlodipine की गोली",
+      "kind": "medicine",
+      "at": 1794277800002,
+      "status": "missed",
+      "text": "अरे, आठ बज गए! Amlodipine अभी लीजिए, कोई बहाना नहीं।",
+      "cards": [],
+      "escalateAt": 1794279600002,
+      "escalateTo": "Rahul"
+    },
+    {
+      "id": "mwa7vfu4x9bg",
+      "title": "Amlodipine की गोली ✗",
+      "kind": "escalation",
+      "at": 1794355140003,
+      "status": "info",
+      "text": "Saathi: Shanti Devi has not confirmed \"Amlodipine की गोली\" (08:00). Please give a call.",
+      "cards": [
+        {
+          "type": "escalation",
+          "family": {
+            "name": "Rahul",
+            "relation": "son",
+            "phone": "+910000000001",
+            "birthday": "11-12"
+          },
+          "message": "Saathi: Shanti Devi has not confirmed \"Amlodipine की गोली\" (08:00). Please give a call.",
+          "url": "https://wa.me/910000000001?text=Saathi%3A%20Shanti%20Devi%20has%20not%20confirmed%20%22Amlodipine%20%E0%A4%95%E0%A5%80%20%E0%A4%97%E0%A5%8B%E0%A4%B2%E0%A5%80%22%20(08%3A00).%20Please%20give%20a%20call."
+        }
+      ]
+    },
+    {
+      "id": "mwa7vfu7y1xh",
+      "title": "Amlodipine (generic)",
+      "kind": "order",
+      "at": 1794355140006,
+      "status": "info",
+      "text": "अरे शांति जी, आपका Generic Amlodipine आ गया है! <laugh> इसे रोज़ की तरह नाश्ते के पास रखिए, ताकि 08:00 बजे आसानी से ले सकें। आपका दिन शुभ हो!",
+      "cards": []
+    },
+    {
+      "id": "mwa7vkqm5v32",
+      "jobId": "j1",
+      "title": "सुबह हो गई",
+      "kind": "wake",
+      "at": 1794355200003,
+      "status": "info",
+      "text": "<excited> सुबह हो गई, शांति जी! उठ जाइए, चाय का टाइम हो गया।",
+      "cards": []
+    },
+    {
+      "id": "mwa7vzv0yjy5",
+      "jobId": "j4",
+      "title": "Amlodipine की गोली",
+      "kind": "medicine",
+      "at": 1794364200003,
+      "status": "missed",
+      "text": "अरे, आठ बज गए! Amlodipine अभी लीजिए, कोई बहाना नहीं।",
+      "cards": [],
+      "escalateAt": 1794366000003,
+      "escalateTo": "Rahul"
+    },
+    {
+      "id": "mwa7wj8zv4k5",
+      "title": "Amlodipine की गोली ✗",
+      "kind": "escalation",
+      "at": 1794372300002,
+      "status": "info",
+      "text": "Saathi: Shanti Devi has not confirmed \"Amlodipine की गोली\" (08:00). Please give a call.",
+      "cards": [
+        {
+          "type": "escalation",
+          "family": {
+            "name": "Rahul",
+            "relation": "son",
+            "phone": "+910000000001",
+            "birthday": "11-12"
+          },
+          "message": "Saathi: Shanti Devi has not confirmed \"Amlodipine की गोली\" (08:00). Please give a call.",
+          "url": "https://wa.me/910000000001?text=Saathi%3A%20Shanti%20Devi%20has%20not%20confirmed%20%22Amlodipine%20%E0%A4%95%E0%A5%80%20%E0%A4%97%E0%A5%8B%E0%A4%B2%E0%A5%80%22%20(08%3A00).%20Please%20give%20a%20call."
+        }
+      ]
+    },
+    {
+      "id": "mwa9ilq1va0g",
+      "title": "check-in",
+      "kind": "call",
+      "at": 1794375009257,
+      "status": "info",
+      "text": "अरे शांति जी, सब ठीक है न? आप सुबह की गोली ले लीं? <sigh> अगर कुछ चाहिए तो बताइए, मैं यहीं हूँ।",
+      "cards": []
+    },
+    {
+      "id": "mwac9zyom2sx",
+      "jobId": "j6",
+      "title": "पानी पीना",
+      "kind": "water",
+      "at": 1794378603054,
+      "status": "pending",
+      "text": "एक गिलास पानी पी लीजिए",
+      "cards": []
+    }
+  ],
+  "memories": [
+    {
+      "fact": "Grows tulsi and roses on the balcony",
+      "about": null,
+      "followUp": false,
+      "date": "2026-11-08"
+    },
+    {
+      "fact": "Knee pain while climbing stairs",
+      "about": "knee",
+      "followUp": true,
+      "date": "2026-11-09"
+    },
+    {
+      "fact": "Anya has a dance recital on Saturday",
+      "about": "Anya",
+      "followUp": true,
+      "date": "2026-11-09"
+    }
+  ],
+  "chat": [
+    {
+      "role": "assistant",
+      "content": "अरे शांति जी, ये SMS पूरी तरह स्कैम है, लिंक नहीं खोलिए और OTP कभी नहीं देंगे—मैं ही परिवार को बता दूँगी!<sigh> तुरंत इस संदेश को डिलीट करिए, कोई जवाब न दें."
+    },
+    {
+      "role": "assistant",
+      "content": "अरे शांति जी, कैसे हैं आप? आज सुबह की चाय साथ में ली? कुर्सी पर बैठते‑बैठते घुटने में दर्द नहीं बढ़ा, अन्या का नाच‑प्रदर्शन चल रहा है?"
+    },
+    {
+      "role": "user",
+      "content": "Aaj mann bahut udaas hai. Rahul ka phone bhi nahi aaya."
+    },
+    {
+      "role": "assistant",
+      "content": "<sigh> अरे शांति जी, दिल को समझते हैं, राहुल की कॉल की ख्वाहिश बड़ी होती है। चलिए, आज थोड़ा हल्का-फुल्का गाना सुनते हैं, फिर मैं डॉक्टर को भी याद दिला दूँगी कि BP और शुगर देखना न भूलें। आप क्या सुनना चाहेंगी?"
+    },
+    {
+      "role": "assistant",
+      "content": "<sigh> सबसे सस्ता है Generic Kendra से, 10 टैबलेट की स्ट्रिप में सिर्फ ₹14। ऑर्डर करूँ?"
+    },
+    {
+      "role": "user",
+      "content": "Haan, sasta wala mangwa do."
+    },
+    {
+      "role": "assistant",
+      "content": "ऑर्डर भेज दिया है, परिवार को मंज़ूरी और भुगतान के लिए बता दूँगी। बस, थोड़ा धैर्य रखिए, 6‑दिन की दवा अब जल्दी पहुंच जाएगी। <laugh> अब थोड़ा गाना सुनिए, कौन सा गाना पसंद है?"
+    },
+    {
+      "role": "assistant",
+      "content": "<audio> <excited> अरे शांति जी, बहुत बढ़िया! राहुल ने जनरिक दवा की ऑर्डर की पुष्टि कर दी, अब वो रास्ते में है—सिर्फ कुछ ही दिनों में पहुंच जाएगी। <laugh> चलिए, थोड़ा गाना सुनते हैं, दिल को हल्का कर लें!"
+    },
+    {
+      "role": "assistant",
+      "content": "अरे शांति जी, आपका Amlodipine (जनरिक) अब पहुंच गया है! <laugh> कृपया इसे रोज़ की तरह सुबह के नाश्ते के पास रखिए, ताकि 08:00 बजे आसानी से ले सकें।"
+    },
+    {
+      "role": "assistant",
+      "content": "<sigh> सबसे सस्ता Generic Kendra से है, 10 टैबलेट की स्ट्रिप सिर्फ ₹14 में। अब ऑर्डर करूँ?"
+    },
+    {
+      "role": "user",
+      "content": "Haan, sabse sasti wali mangwa do"
+    },
+    {
+      "role": "assistant",
+      "content": "ऑर्डर भेज दिया है, अब राहुल को मंज़ूरी और पेमेंट की सूचना दे दूँगी। आप सुबह की Amlodipine जल्दी ले लीजिए, फिर थोड़ा गाना सुनिए। <laugh> कौन सा गाना मन कर रहा है?"
+    },
+    {
+      "role": "assistant",
+      "content": "बहुत बढ़िया, राहुल ने ऑर्डर मंज़ूर कर दिया और पैसे भी दे दिए—अब आपका Generic Amlodipine रास्ते में है, जल्दी ही पहुँच जाएगा! <laugh> अब थोड़ा गाना सुनिए, मन को हल्का कर लें?"
+    },
+    {
+      "role": "assistant",
+      "content": "अरे शांति जी, आपका Generic Amlodipine आ गया है! <laugh> इसे रोज़ की तरह नाश्ते के पास रखिए, ताकि 08:00 बजे आसानी से ले सकें। आपका दिन शुभ हो!"
+    },
+    {
+      "role": "assistant",
+      "content": "अरे शांति जी, सब ठीक है न? आप सुबह की गोली ले लीं? <sigh> अगर कुछ चाहिए तो बताइए, मैं यहीं हूँ।"
+    },
+    {
+      "role": "user",
+      "content": "Ghutnon mein phir dard hai. Aur Anya ka dance recital bhi miss ho jayega."
+    },
+    {
+      "role": "assistant",
+      "content": "<sigh> अरे शांति जी, घुटनों में फिर से दर्द है? चलिए, अभी आराम से बैठिए, फिर तुरंत Amlodipine की गोली ले लीजिए—BP को स्थिर रखने में मदद मिलेगी।<pause> और Anya का डांस रीकैप देखेंगे, तो कौन सा गाना गुनगुनाना चाहेंगे?"
+    },
+    {
+      "role": "user",
+      "content": "Anya ka dance recital Saturday ko hai, par ghutnon ki wajah se main ja nahi paungi."
+    },
+    {
+      "role": "assistant",
+      "content": "<sigh> अरे शांति जी, बहुत दुखी हूँ कि आप नहीं जा पाएँगी—Anya को आपका प्यार ज़रूर महसूस होगा। मैं अभी उन्हें एक व्हॉट्सऐप संदेश तैयार कर देती हूँ, आप क्या लिखवाना चाहेंगी?"
+    }
+  ],
+  "push": [],
+  "moods": [
+    {
+      "score": 4,
+      "feelings": [
+        "happy"
+      ],
+      "note": "Anya called",
+      "at": 1794200400000,
+      "date": "2026-11-09"
+    },
+    {
+      "score": 2,
+      "feelings": [
+        "sad",
+        "lonely"
+      ],
+      "note": "User feeling sad, son Rahul not calling",
+      "at": 1794289213453,
+      "date": "2026-11-10"
+    },
+    {
+      "score": 2,
+      "feelings": [
+        "pain",
+        "sad"
+      ],
+      "note": "knee pain while climbing stairs",
+      "at": 1794375613337,
+      "date": "2026-11-11"
+    },
+    {
+      "score": 2,
+      "feelings": [
+        "pain",
+        "sad"
+      ],
+      "note": "knee pain, missing Anya's recital",
+      "at": 1794375614912,
+      "date": "2026-11-11"
+    }
+  ],
+  "orders": [
+    {
+      "id": "mwa7kzk80f2d",
+      "med": "Amlodipine (generic)",
+      "offer": {
+        "sku": "generic-amlodipine",
+        "name": "Amlodipine (generic)",
+        "strength": "5 mg",
+        "pack": "strip of 10",
+        "mrp": 32,
+        "price": 14,
+        "generic": true,
+        "eta_hours": 6,
+        "in_stock": true,
+        "partner": "Generic Kendra (demo store)",
+        "base": "http://localhost:8795/partner/pharmacy/generic"
+      },
+      "qty": 1,
+      "total": 14,
+      "status": "delivered",
+      "approver": "Rahul",
+      "history": [
+        {
+          "status": "awaiting_approval",
+          "at": 1794283824312
+        },
+        {
+          "status": "placed",
+          "at": 1794286286091
+        },
+        {
+          "status": "delivered",
+          "at": 1794286800012
+        }
+      ],
+      "partnerId": "GE286087"
+    },
+    {
+      "id": "mwa7siij0z1q",
+      "med": "Amlodipine (generic)",
+      "offer": {
+        "sku": "generic-amlodipine",
+        "name": "Amlodipine (generic)",
+        "strength": "5 mg",
+        "pack": "strip of 10",
+        "mrp": 32,
+        "price": 14,
+        "generic": true,
+        "eta_hours": 6,
+        "in_stock": true,
+        "partner": "Generic Kendra (demo store)",
+        "base": "http://localhost:8795/partner/pharmacy/generic"
+      },
+      "qty": 1,
+      "total": 14,
+      "status": "delivered",
+      "approver": "Rahul",
+      "history": [
+        {
+          "status": "awaiting_approval",
+          "at": 1794287423312
+        },
+        {
+          "status": "placed",
+          "at": 1794287477362
+        },
+        {
+          "at": 1794268740009
+        },
+        {
+          "status": "delivered",
+          "at": 1794355140006
+        }
+      ],
+      "partnerId": "GE448348"
+    }
+  ],
+  "feed": [
+    {
+      "id": "mwa7gih945h6",
+      "at": 1794277821813,
+      "kind": "scam",
+      "title": "Scam message blocked for Shanti Devi",
+      "text": "From VK-SBIBNK: \"Dear customer, your SBI account will be BLOCKED today. Update KYC now at http://sbi-kyc-upd.in and share the OTP sent to\". The message asks for KYC verification and to share an OTP via a suspicious link, creating urgency and threat of account blockage.. Saathi warned them not to share any OTP or click links."
+    },
+    {
+      "id": "mwa7hb2w9n1m",
+      "at": 1794289200004,
+      "kind": "missed_dose",
+      "title": "Shanti Devi has not confirmed Amlodipine की गोली",
+      "text": "Reminder at 08:00 was not confirmed. Please give a call.",
+      "to": "Rahul"
+    },
+    {
+      "id": "mwa7hlgi6gz4",
+      "at": 1794289213454,
+      "kind": "mood",
+      "title": "Shanti Devi seems low today",
+      "text": "Feeling sad, lonely — User feeling sad, son Rahul not calling. A call from you would mean a lot today.",
+      "to": "Rahul"
+    },
+    {
+      "id": "mwa7kzk8stiq",
+      "at": 1794283824312,
+      "kind": "approval",
+      "title": "Approve medicine order for Shanti Devi",
+      "text": "1 × Amlodipine (generic) 5 mg (strip of 10) from Generic Kendra (demo store) · ₹14",
+      "orderId": "mwa7kzk80f2d"
+    },
+    {
+      "id": "mwa7qq25n2mh",
+      "at": 1794286800012,
+      "kind": "order",
+      "title": "Amlodipine (generic) delivered",
+      "text": "Stock is now enough for about a month.",
+      "orderId": "mwa7kzk80f2d"
+    },
+    {
+      "id": "mwa7siij6f1c",
+      "at": 1794287423312,
+      "kind": "approval",
+      "title": "Approve medicine order for Shanti Devi",
+      "text": "1 × Amlodipine (generic) 5 mg (strip of 10) from Generic Kendra (demo store) · ₹14",
+      "orderId": "mwa7siij0z1q"
+    },
+    {
+      "id": "mwa7vfu54uuf",
+      "at": 1794355140004,
+      "kind": "missed_dose",
+      "title": "Shanti Devi has not confirmed Amlodipine की गोली",
+      "text": "Reminder at 08:00 was not confirmed. Please give a call.",
+      "to": "Rahul"
+    },
+    {
+      "id": "mwa7vfu7qcq3",
+      "at": 1794355140006,
+      "kind": "order",
+      "title": "Amlodipine (generic) delivered",
+      "text": "Stock is now enough for about a month.",
+      "orderId": "mwa7siij0z1q"
+    },
+    {
+      "id": "mwa7wj8zvbqb",
+      "at": 1794372300002,
+      "kind": "missed_dose",
+      "title": "Shanti Devi has not confirmed Amlodipine की गोली",
+      "text": "Reminder at 08:00 was not confirmed. Please give a call.",
+      "to": "Rahul"
+    },
+    {
+      "id": "mwaafrl90u04",
+      "at": 1794375613339,
+      "kind": "mood",
+      "title": "Shanti Devi seems low today",
+      "text": "Feeling pain, sad — knee pain while climbing stairs. A call from you would mean a lot today.",
+      "to": "Rahul"
+    }
+  ],
+  "messages": [
+    {
+      "id": "mwa7gih9btnx",
+      "from": "VK-SBIBNK",
+      "channel": "SMS",
+      "text": "Dear customer, your SBI account will be BLOCKED today. Update KYC now at http://sbi-kyc-upd.in and share the OTP sent to you.",
+      "summary": "VK‑SBIBNK ने कहा है कि आपका SBI खाता ब्लॉक हो जाएगा, इसलिए KYC अपडेट करने और OTP भेजने के लिए लिंक खोलें.",
+      "scam": true,
+      "reason": "The message asks for KYC verification and to share an OTP via a suspicious link, creating urgency and threat of account blockage.",
+      "at": 1794277821813,
+      "read": false
+    }
+  ],
+  "voices": {},
+  "daily": {
+    "2026-11-10": {
+      "checkin": true,
+      "mood": true,
+      "stock:amlodipine": true
+    },
+    "2026-11-11": {
+      "checkin": true,
+      "mood": true
+    }
+  },
+  "lastActive": 1794375612580,
+  "partner": {
+    "GE286087": {
+      "id": "GE286087",
+      "created": 1794286286087,
+      "sku": "generic-amlodipine",
+      "qty": 1,
+      "ref": "mwa7kzk80f2d"
+    },
+    "GE448348": {
+      "id": "GE448348",
+      "created": 1794287477361,
+      "sku": "generic-amlodipine",
+      "qty": 1,
+      "ref": "mwa7siij0z1q"
+    }
+  }
+}
